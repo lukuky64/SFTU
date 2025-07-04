@@ -86,6 +86,19 @@
 #define PCA6408A_IO6 0b01000000
 #define PCA6408A_IO7 0b10000000
 
+// Array of PCA6408A pin constants (indexed from 1-8)
+static const uint8_t PCA6408A_outputPins[] = {
+    0,             // Index 0 (unused)
+    PCA6408A_IO0,  // Index 1 -> Output 1
+    PCA6408A_IO1,  // Index 2 -> Output 2
+    PCA6408A_IO2,  // Index 3 -> Output 3
+    PCA6408A_IO3,  // Index 4 -> Output 4
+    PCA6408A_IO4,  // Index 5 -> Output 5
+    PCA6408A_IO5,  // Index 6 -> Output 6
+    PCA6408A_IO6,  // Index 7 -> Output 7
+    PCA6408A_IO7   // Index 8 -> Output 8
+};
+
 class PCA6408A {
  public:
   PCA6408A(uint8_t addr, TwoWire &wire);

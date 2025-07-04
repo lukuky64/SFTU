@@ -117,13 +117,32 @@ void Commander::handle_set_OUTPUT() {
 
   // convert to integer
   if (data == nullptr) {
-    ESP_LOGW(TAG, "Empty data received for output set, expecting <uint8_t>");
+    ESP_LOGW(TAG, "Empty data received");
+    return;
+  }
+
+  int outputIndex = atoi(data);  // Convert to 1-based index
+
+  // Validate output index range
+  if (outputIndex < 1 || outputIndex > 8) {
+    ESP_LOGW(TAG, "Invalid output index %d, must be 1-8", outputIndex);
+    return;
+  }
+
+  uint8_t outputPin = PCA6408A_outputPins[outputIndex];
+
+  data = readAndRemove();  // Read and remove the command token
+
+  // convert to integer
+  if (data == nullptr) {
+    ESP_LOGW(TAG, "Empty data received");
     return;
   }
 
   bool ioState = ((atoi(data)) == 1) ? true : false;
+
   ESP_LOGI(TAG, "Setting output to %s", ioState ? "ON" : "OFF");
-  m_actuation->setDigital(PCA6408A_IO0, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  m_actuation->setDigital(outputPin, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
 }
 #else
 void Commander::handle_set_OUTPUT() {
