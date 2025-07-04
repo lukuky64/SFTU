@@ -1,0 +1,62 @@
+#include <Arduino.h>
+
+#include "Pin_Defs.hpp"
+#include "actuation.hpp"
+#include "display.hpp"
+
+Display display;
+TwoWire I2C_BUS(1);
+Actuation actuation(PCA6408A_SLAVE_ADDRESS_L, PCA6408A_SLAVE_ADDRESS_H,
+                    I2C_BUS);
+
+uint8_t delay_ = 50;
+
+bool ioState = false;
+
+void setup() {
+  pinMode(INDICATOR_LED1, OUTPUT);
+  pinMode(INDICATOR_LED2, OUTPUT);
+  pinMode(INDICATOR_LED3, OUTPUT);
+  pinMode(INDICATOR_LED4, OUTPUT);
+
+  I2C_BUS.begin(I2C2_SDA, I2C2_SCL, 400000);
+
+  display.init(I2C_BUS);
+  display.begin();
+
+  actuation.init();
+
+  delay(1000);
+}
+
+void loop() {
+  actuation.setDigital(PCA6408A_IO0, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  delay(delay_);
+  actuation.setDigital(PCA6408A_IO1, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  delay(delay_);
+  actuation.setDigital(PCA6408A_IO2, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  delay(delay_);
+  actuation.setDigital(PCA6408A_IO3, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  delay(delay_);
+  actuation.setDigital(PCA6408A_IO4, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  delay(delay_);
+  actuation.setDigital(PCA6408A_IO5, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  delay(delay_);
+  actuation.setDigital(PCA6408A_IO6, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  delay(delay_);
+  actuation.setDigital(PCA6408A_IO7, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+  delay(delay_);
+  ioState = !ioState;
+  ESP_LOGI("loop", "IO0 State: %d", (actuation.getDigital(PCA6408A_IO0)));
+
+  // i2cScan(I2C_BUS);
+
+  digitalWrite(INDICATOR_LED1, !digitalRead(INDICATOR_LED1));
+  delay(delay_);
+  digitalWrite(INDICATOR_LED3, !digitalRead(INDICATOR_LED3));
+  delay(delay_);
+  digitalWrite(INDICATOR_LED2, !digitalRead(INDICATOR_LED2));
+  delay(delay_);
+  digitalWrite(INDICATOR_LED4, !digitalRead(INDICATOR_LED4));
+  delay(delay_);
+}

@@ -1,0 +1,10 @@
+{
+    "name": "Libs",
+    "version": "1.0.0",
+    "description": "All device drivers",
+    "authors": [
+        {
+            "name": "Lucas Moore"
+        }
+    ]
+}

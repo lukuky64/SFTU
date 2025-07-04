@@ -1,0 +1,16 @@
+
+Replace with this in 'RadioHead.h':
+
+#elif (RH_PLATFORM == RH_PLATFORM_ESP32)
+  #define ATOMIC_BLOCK_START vPortEnterCritical()
+  #define ATOMIC_BLOCK_END   vPortExitCritical()
+
+Replace with this in 'RH_ASK.cpp':
+
+  #elif (RH_PLATFORM == RH_PLATFORM_ESP32)
+  void RH_INTERRUPT_ATTR
+  esp32_timer_interrupt_handler();  // Forward declaration
+  timer = timerBegin(1000000);
+  timerAttachInterrupt(timer, &esp32_timer_interrupt_handler);
+  timerAlarm(timer, 1000000 / _speed / 8, true, 0);
+#endif

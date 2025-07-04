@@ -1,0 +1,35 @@
+#include "LoRaComm.hpp"
+#include <String>
+
+// shared variables
+const int baud_rate = 115200;
+
+// LoRa variables
+const float frequency = 915.0; // MHz
+const int chipSelectPin = 15;
+const int resetPin = 27;
+const int interruptPin = 26; // G0
+
+String recievedMessage = "";
+
+const int ledPin = 2;
+
+// instantiate objects
+LoRaComm loRaComm(chipSelectPin, resetPin, interruptPin, frequency, baud_rate);
+
+void setup()
+{
+    pinMode(ledPin, OUTPUT);
+    loRaComm.begin();
+}
+
+void loop()
+{
+    recievedMessage = loRaComm.checkForReply();
+    if (recievedMessage != "")
+    {
+        digitalWrite(ledPin, HIGH);
+        delay(50);
+        digitalWrite(ledPin, LOW);
+    }
+}

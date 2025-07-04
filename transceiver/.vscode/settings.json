@@ -1,0 +1,22 @@
+{
+    "files.associations": {
+        "cstdint": "cpp",
+        "sstream": "cpp",
+        "array": "cpp",
+        "deque": "cpp",
+        "list": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp",
+        "vector": "cpp",
+        "string_view": "cpp",
+        "format": "cpp",
+        "initializer_list": "cpp",
+        "span": "cpp",
+        "system_error": "cpp",
+        "chrono": "cpp",
+        "typeinfo": "cpp",
+        "type_traits": "cpp",
+        "random": "cpp"
+    }
+}
