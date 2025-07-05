@@ -12,5 +12,9 @@
 			"path": "transceiver"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"random": "cpp"
+		}
+	}
 }
