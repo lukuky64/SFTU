@@ -8,13 +8,17 @@
 #include "LoRaCom.hpp"
 #include "SerialCom.hpp"
 #include "Wire.h"
+#include "adcADS.hpp"
 #include "commander.hpp"
+#include "driver/timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #ifdef SFTU
+#include "SD_Talker.hpp"
 #include "actuation.hpp"
+
 #else
 #include "saveFlash.hpp"
 #endif
@@ -53,15 +57,22 @@ class Control {
 
  private:
   TwoWire *m_I2C_BUS;
+  TwoWire *m_ANALOG_I2C_BUS;
+
+  SPIClass *m_SPI_BUS;
 
   SerialCom *m_serialCom;
   LoRaCom *m_LoRaCom;
   Commander *m_commander;
+  SD_Talker *m_sdTalker;
+
 #ifdef SFTU
   Actuation *m_actuation;
 #else
   SaveFlash *m_saveFlash;
 #endif
+
+  adcADS *m_adcADS;
 
   unsigned long serial_Interval = 100;
   unsigned long lora_Interval = 100;
@@ -74,11 +85,17 @@ class Control {
   TaskHandle_t LoRaTaskHandle = nullptr;
   TaskHandle_t StatusTaskHandle = nullptr;
   TaskHandle_t heartBeatTaskHandle = nullptr;
+  TaskHandle_t analogTaskHandle = nullptr;
+  TaskHandle_t sdTaskHandle = nullptr;
 
   void serialDataTask();
   void loRaDataTask();
   void statusTask();
   void heartBeatTask();
+  void analogTask();
+  void sdTask();
+
+  volatile bool adcSampleFlag = false;
 
   void interpretMessage(const char *buffer, bool relayMsgLoRa);
   void processData(const char *buffer);
@@ -89,6 +106,9 @@ class Control {
   String m_mode = "transceive";
   String m_status = "ok";  // Status of the device (e.g., "ok", "error", etc.)
   float m_batteryLevel = 100.0;  // Battery level as a percentage (0-100)
+
+  xQueueHandle m_adcQueue;
+  uint16_t adcSPS = 860;  // Set the data rate for the ADC
 
   // Data payload;
 };

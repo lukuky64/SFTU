@@ -1,10 +1,17 @@
+
 #include "control.hpp"
 
 Control::Control() {
+  m_ANALOG_I2C_BUS = new TwoWire(0);
   m_I2C_BUS = new TwoWire(1);
+  m_SPI_BUS = new SPIClass();
 
   m_serialCom = new SerialCom();  // Initialize SerialCom instance
   m_LoRaCom = new LoRaCom();      // Initialize LoRaCom instance
+
+  m_adcADS = new adcADS(*m_ANALOG_I2C_BUS);  // Initialize adcADS instance
+
+  m_sdTalker = new SD_Talker();  // Initialize SD_Talker instance
 
 #ifdef SFTU
   m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L,
@@ -18,8 +25,24 @@ Control::Control() {
 
 void Control::setup() {
 #ifdef SFTU
-  m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL, 400000);
+  m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL);
+  m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL);
+  m_SPI_BUS->begin(SPI_CLK_SD, SPI_MISO_SD, SPI_MOSI_SD);
+
+  m_I2C_BUS->setClock(400'000);
+  m_ANALOG_I2C_BUS->setClock(400'000);
+  m_SPI_BUS->setFrequency(40'000'000);
+
   m_actuation->init();
+  m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
+
+  m_adcADS->init(ADS0_ADDR);  // Use ADS0 address
+
+  m_adcQueue = xQueueCreate(
+      100,
+      sizeof(
+          SampleWithTimestamp));  // from testing, its only ever about 4 samples
+
 #else
 #endif
 
@@ -64,22 +87,40 @@ void Control::begin() {
     vTaskDelete(StatusTaskHandle);
   }
 
+  if (heartBeatTaskHandle != nullptr) {
+    vTaskDelete(heartBeatTaskHandle);
+  }
+
+  if (analogTaskHandle != nullptr) {
+    vTaskDelete(analogTaskHandle);
+  }
+
+  if (sdTaskHandle != nullptr) {
+    vTaskDelete(sdTaskHandle);
+  }
+
   // Create new tasks for serial data handling, LoRa data handling, and status
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate(
       [](void *param) { static_cast<Control *>(param)->serialDataTask(); },
-      "SerialDataTask", 4096, this, 2, &SerialTaskHandle);
+      "SerialDataTask", 2048, this, 2, &SerialTaskHandle);
 
   xTaskCreate(
       [](void *param) { static_cast<Control *>(param)->loRaDataTask(); },
-      "LoRaDataTask", 4096, this, 2, &LoRaTaskHandle);
+      "LoRaDataTask", 2048, this, 2, &LoRaTaskHandle);
 
   xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); },
               "StatusTask", 4096, this, 1, &StatusTaskHandle);
 
   xTaskCreate(
       [](void *param) { static_cast<Control *>(param)->heartBeatTask(); },
-      "HeartBeatTask", 2048, this, 1, &heartBeatTaskHandle);
+      "HeartBeatTask", 4096, this, 1, &heartBeatTaskHandle);
+
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->analogTask(); },
+              "AnalogTask", 8192, this, 3, &analogTaskHandle);
+
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->sdTask(); },
+              "sdTask", 8192, this, 3, &sdTaskHandle);
 
   ESP_LOGI(TAG, "Control begun!\n");
 
@@ -91,7 +132,114 @@ void Control::heartBeatTask() {
   while (true) {
     digitalWrite(INDICATOR_LED1, !digitalRead(INDICATOR_LED1));
     // ESP_LOGD(TAG, "LED toggled");
+
+    // print how much stack is left on each task
+    // ESP_LOGD(TAG,
+    //          "Stack left: SerialTask: %d, LoRaTask: %d, StatusTask: %d, "
+    //          "HeartBeatTask: %d, AnalogTask: %d, sdTask: %d",
+    //          uxTaskGetStackHighWaterMark(SerialTaskHandle),
+    //          uxTaskGetStackHighWaterMark(LoRaTaskHandle),
+    //          uxTaskGetStackHighWaterMark(StatusTaskHandle),
+    //          uxTaskGetStackHighWaterMark(heartBeatTaskHandle),
+    //          uxTaskGetStackHighWaterMark(analogTaskHandle),
+    //          uxTaskGetStackHighWaterMark(sdTaskHandle));
     vTaskDelay(pdMS_TO_TICKS(heartBeat_Interval));
+  }
+}
+
+// void Control::analogTask() {
+//   m_adcADS->startContinuous(m_adcQueue);  // Start continuous ADC reading
+
+//   while (true) {
+//     if (m_adcADS->isReady()) {
+//       ESP_LOGI(TAG, "ADC ready!");
+//       SampleWithTimestamp sample;
+//       sample.value = m_adcADS->getLastVolt();
+//       sample.timestamp = micros();
+//       xQueueSend(m_adcQueue, &sample, 0);
+//     }
+//     vTaskDelay(1);
+//   }
+// }
+
+void Control::analogTask() {
+  const TickType_t xFrequency = pdMS_TO_TICKS(1000.0f / (float)adcSPS);
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+
+  m_adcADS->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS,
+                           ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
+
+  uint32_t startMicros = micros();
+
+  // We'll assume m_adcADS->loadLastVolt() returns a float sample
+
+  m_adcADS->startContinuous(m_adcQueue);  // Start continuous ADC reading
+  while (true) {
+    SampleWithTimestamp sample;
+
+    // while (!m_adcADS->isReady());  // blocking but should be very fast
+    // Have a feeling that isReady is only for single shot mode
+
+    sample.value = m_adcADS->getLastVolt();
+    // sample.value = m_adcADS->readNewVolt();
+    sample.timestamp = micros() - startMicros;
+    xQueueSend(m_adcQueue, &sample, 0);
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+  }
+}
+
+// void Control::analogTask() {
+//   while (true) {
+//     if (adcSampleFlag) {
+//       adcSampleFlag = false;
+//       SampleWithTimestamp sample;
+//       sample.value = m_adcADS->getLastVolt();
+//       sample.timestamp = micros();
+//       xQueueSend(m_adcQueue, &sample, 0);
+//     }
+//     vTaskDelay(1);  // or a small delay
+//   }
+// }
+
+void Control::sdTask() {
+  const size_t blockSize = 512;
+  static SampleWithTimestamp *block = nullptr;
+  if (!block) {
+    block =
+        (SampleWithTimestamp *)malloc(sizeof(SampleWithTimestamp) * blockSize);
+    if (!block) {
+      ESP_LOGE(TAG, "Failed to allocate block buffer for SD task!");
+      vTaskDelete(nullptr);
+      return;
+    }
+  }
+  size_t count = 0;
+
+  m_sdTalker->startNewLog("/log");  // Start a new log file for analog data
+
+  const TickType_t blockTimeout =
+      pdMS_TO_TICKS(1000);  // Max wait before flushing
+  TickType_t lastBlockTime = xTaskGetTickCount();
+  while (true) {
+    // Wait for a sample, but with a timeout
+    if (xQueueReceive(m_adcQueue, &block[count], blockTimeout)) {
+      count++;
+      // Try to fill the block as much as possible, but don't block
+      while (count < blockSize && xQueueReceive(m_adcQueue, &block[count], 0)) {
+        count++;
+      }
+    }
+    // Write if block is full or timeout has passed and we have data
+    TickType_t now = xTaskGetTickCount();
+    if (count >= blockSize ||
+        (count > 0 && (now - lastBlockTime) >= blockTimeout)) {
+      // Write both value and timestamp to SD (update SD_Talker as needed)
+      m_sdTalker->writeBlockToSD(block, count);
+      count = 0;
+      lastBlockTime = now;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 
@@ -109,8 +257,7 @@ void Control::serialDataTask() {
       rxIndex = 0;  // Reset the index
     }
 
-    // Use a small delay instead of yield() to be more cooperative
-    vTaskDelay(pdMS_TO_TICKS(10));  // 10ms delay allows other tasks to run
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
 
@@ -133,8 +280,7 @@ void Control::loRaDataTask() {
       memset(buffer, 0, sizeof(buffer));
     }
 
-    // Use a small delay instead of yield() to be more cooperative
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
 
