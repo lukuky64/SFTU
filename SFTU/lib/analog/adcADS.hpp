@@ -15,9 +15,13 @@ class adcADS : public adcBase {
   void init(uint8_t addr);
 
   // Read latest value from the ADC
+<<<<<<< HEAD
   float readNewVolt() override;
 
   float getLastVolt();
+=======
+  float readVolt() override;
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 
   // Check if the ADC is ready for reading
   bool isReady() const override;
@@ -26,7 +30,11 @@ class adcADS : public adcBase {
   int getResolution() const override;
 
   // Set up ADC for continuous reading, we might need DMAs and ISRs
+<<<<<<< HEAD
   void startContinuous(xQueueHandle &adcQueue) override;
+=======
+  void startContinuous() override;
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 
   // Set the gain for the ADC
   bool setGain(int gain) override;
@@ -42,6 +50,10 @@ class adcADS : public adcBase {
  private:
   Adafruit_ADS1115 *m_adc;
   int m_mux;
+<<<<<<< HEAD
+=======
+  int m_rate;
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
   TwoWire *m_I2C_BUS;
 
   // Add any private members or methods needed for the ADS ADC implementation

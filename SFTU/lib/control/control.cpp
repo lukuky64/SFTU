@@ -11,8 +11,11 @@ Control::Control() {
 
   m_adcADS = new adcADS(*m_ANALOG_I2C_BUS);  // Initialize adcADS instance
 
+<<<<<<< HEAD
   m_sdTalker = new SD_Talker();  // Initialize SD_Talker instance
 
+=======
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 #ifdef SFTU
   m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L,
                               PCA6408A_SLAVE_ADDRESS_H, *m_I2C_BUS);
@@ -25,6 +28,7 @@ Control::Control() {
 
 void Control::setup() {
 #ifdef SFTU
+<<<<<<< HEAD
   m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL);
   m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL);
   m_SPI_BUS->begin(SPI_CLK_SD, SPI_MISO_SD, SPI_MOSI_SD);
@@ -43,6 +47,13 @@ void Control::setup() {
       sizeof(
           SampleWithTimestamp));  // from testing, its only ever about 4 samples
 
+=======
+  m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL, 100000);
+  m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL, 100000);  // Initialize I2C buses
+  m_actuation->init();
+
+  m_adcADS->init(ADS0_ADDR);  // Use ADS0 address
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 #else
 #endif
 
@@ -95,10 +106,13 @@ void Control::begin() {
     vTaskDelete(analogTaskHandle);
   }
 
+<<<<<<< HEAD
   if (sdTaskHandle != nullptr) {
     vTaskDelete(sdTaskHandle);
   }
 
+=======
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
   // Create new tasks for serial data handling, LoRa data handling, and status
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate(
@@ -121,6 +135,9 @@ void Control::begin() {
 
   xTaskCreate([](void *param) { static_cast<Control *>(param)->sdTask(); },
               "sdTask", 8192, this, 3, &sdTaskHandle);
+
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->analogTask(); },
+              "AnalogTask", 4096, this, 3, &analogTaskHandle);
 
   ESP_LOGI(TAG, "Control begun!\n");
 
@@ -147,6 +164,7 @@ void Control::heartBeatTask() {
   }
 }
 
+<<<<<<< HEAD
 // void Control::analogTask() {
 //   m_adcADS->startContinuous(m_adcQueue);  // Start continuous ADC reading
 
@@ -240,6 +258,17 @@ void Control::sdTask() {
     }
 
     vTaskDelay(pdMS_TO_TICKS(5));
+=======
+void Control::analogTask() {
+  while (true) {
+    float data = m_adcADS->readVolt();  // Read the voltage from the ADC
+    m_serialCom->sendData("ADC Data: ");
+    m_serialCom->sendData(
+        String(data, 4).c_str());  // Send the data with 4 decimal places
+    m_serialCom->sendData("\n");
+
+    vTaskDelay(pdMS_TO_TICKS(100));  // Delay for 1 second
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
   }
 }
 

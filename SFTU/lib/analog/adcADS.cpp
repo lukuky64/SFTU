@@ -22,18 +22,27 @@ void adcADS::setInputConfig(adsGain_t gain, uint8_t dataRate, int mux) {
   m_mux = mux;
 }
 
+<<<<<<< HEAD
 void adcADS::startContinuous(xQueueHandle &adcQueue) {
   m_adcQueue = &adcQueue;
+=======
+void adcADS::startContinuous() {
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
   m_adc->startADCReading(m_mux, true);
   //
 }
 
+<<<<<<< HEAD
 float adcADS::readNewVolt() {
+=======
+float adcADS::readVolt() {
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
   m_adc->startADCReading(m_mux, false);
 
   // Wait for the conversion to complete
   while (!m_adc->conversionComplete());
 
+<<<<<<< HEAD
   m_lastResultV = m_adc->computeVolts(m_adc->getLastConversionResults());
 
   //   xQueueSend(*m_adcQueue, &m_lastResultV, 0);
@@ -43,6 +52,10 @@ float adcADS::readNewVolt() {
 
 float adcADS::getLastVolt() {
   m_lastResultV = m_adc->computeVolts(m_adc->getLastConversionResults());
+=======
+  uint16_t rawADC = m_adc->getLastConversionResults();
+  m_lastResultV = m_adc->computeVolts(rawADC);
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
   return m_lastResultV;
 }
 

@@ -58,13 +58,19 @@ class Control {
  private:
   TwoWire *m_I2C_BUS;
   TwoWire *m_ANALOG_I2C_BUS;
+<<<<<<< HEAD
 
   SPIClass *m_SPI_BUS;
+=======
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 
   SerialCom *m_serialCom;
   LoRaCom *m_LoRaCom;
   Commander *m_commander;
+<<<<<<< HEAD
   SD_Talker *m_sdTalker;
+=======
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 
 #ifdef SFTU
   Actuation *m_actuation;
@@ -86,16 +92,22 @@ class Control {
   TaskHandle_t StatusTaskHandle = nullptr;
   TaskHandle_t heartBeatTaskHandle = nullptr;
   TaskHandle_t analogTaskHandle = nullptr;
+<<<<<<< HEAD
   TaskHandle_t sdTaskHandle = nullptr;
+=======
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 
   void serialDataTask();
   void loRaDataTask();
   void statusTask();
   void heartBeatTask();
   void analogTask();
+<<<<<<< HEAD
   void sdTask();
 
   volatile bool adcSampleFlag = false;
+=======
+>>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 
   void interpretMessage(const char *buffer, bool relayMsgLoRa);
   void processData(const char *buffer);
