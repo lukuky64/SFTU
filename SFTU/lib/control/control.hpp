@@ -8,6 +8,7 @@
 #include "LoRaCom.hpp"
 #include "SerialCom.hpp"
 #include "Wire.h"
+#include "adcADS.hpp"
 #include "commander.hpp"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -53,15 +54,19 @@ class Control {
 
  private:
   TwoWire *m_I2C_BUS;
+  TwoWire *m_ANALOG_I2C_BUS;
 
   SerialCom *m_serialCom;
   LoRaCom *m_LoRaCom;
   Commander *m_commander;
+
 #ifdef SFTU
   Actuation *m_actuation;
 #else
   SaveFlash *m_saveFlash;
 #endif
+
+  adcADS *m_adcADS;
 
   unsigned long serial_Interval = 100;
   unsigned long lora_Interval = 100;
@@ -74,11 +79,13 @@ class Control {
   TaskHandle_t LoRaTaskHandle = nullptr;
   TaskHandle_t StatusTaskHandle = nullptr;
   TaskHandle_t heartBeatTaskHandle = nullptr;
+  TaskHandle_t analogTaskHandle = nullptr;
 
   void serialDataTask();
   void loRaDataTask();
   void statusTask();
   void heartBeatTask();
+  void analogTask();
 
   void interpretMessage(const char *buffer, bool relayMsgLoRa);
   void processData(const char *buffer);

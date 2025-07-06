@@ -1,10 +1,13 @@
 #include "control.hpp"
 
 Control::Control() {
+  m_ANALOG_I2C_BUS = new TwoWire(0);
   m_I2C_BUS = new TwoWire(1);
 
   m_serialCom = new SerialCom();  // Initialize SerialCom instance
   m_LoRaCom = new LoRaCom();      // Initialize LoRaCom instance
+
+  m_adcADS = new adcADS(*m_ANALOG_I2C_BUS);  // Initialize adcADS instance
 
 #ifdef SFTU
   m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L,
@@ -18,8 +21,11 @@ Control::Control() {
 
 void Control::setup() {
 #ifdef SFTU
-  m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL, 400000);
+  m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL, 100000);
+  m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL, 100000);  // Initialize I2C buses
   m_actuation->init();
+
+  m_adcADS->init(ADS0_ADDR);  // Use ADS0 address
 #else
 #endif
 
@@ -64,6 +70,14 @@ void Control::begin() {
     vTaskDelete(StatusTaskHandle);
   }
 
+  if (heartBeatTaskHandle != nullptr) {
+    vTaskDelete(heartBeatTaskHandle);
+  }
+
+  if (analogTaskHandle != nullptr) {
+    vTaskDelete(analogTaskHandle);
+  }
+
   // Create new tasks for serial data handling, LoRa data handling, and status
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate(
@@ -81,6 +95,9 @@ void Control::begin() {
       [](void *param) { static_cast<Control *>(param)->heartBeatTask(); },
       "HeartBeatTask", 2048, this, 1, &heartBeatTaskHandle);
 
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->analogTask(); },
+              "AnalogTask", 4096, this, 3, &analogTaskHandle);
+
   ESP_LOGI(TAG, "Control begun!\n");
 
   ESP_LOGI(TAG, "Type <help> for a list of commands");
@@ -92,6 +109,18 @@ void Control::heartBeatTask() {
     digitalWrite(INDICATOR_LED1, !digitalRead(INDICATOR_LED1));
     // ESP_LOGD(TAG, "LED toggled");
     vTaskDelay(pdMS_TO_TICKS(heartBeat_Interval));
+  }
+}
+
+void Control::analogTask() {
+  while (true) {
+    float data = m_adcADS->readVolt();  // Read the voltage from the ADC
+    m_serialCom->sendData("ADC Data: ");
+    m_serialCom->sendData(
+        String(data, 4).c_str());  // Send the data with 4 decimal places
+    m_serialCom->sendData("\n");
+
+    vTaskDelay(pdMS_TO_TICKS(100));  // Delay for 1 second
   }
 }
 
