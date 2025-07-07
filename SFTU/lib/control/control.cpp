@@ -11,11 +11,8 @@ Control::Control() {
 
   m_adcADS = new adcADS(*m_ANALOG_I2C_BUS);  // Initialize adcADS instance
 
-<<<<<<< HEAD
   m_sdTalker = new SD_Talker();  // Initialize SD_Talker instance
 
-=======
->>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 #ifdef SFTU
   m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L,
                               PCA6408A_SLAVE_ADDRESS_H, *m_I2C_BUS);
@@ -28,7 +25,6 @@ Control::Control() {
 
 void Control::setup() {
 #ifdef SFTU
-<<<<<<< HEAD
   m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL);
   m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL);
   m_SPI_BUS->begin(SPI_CLK_SD, SPI_MISO_SD, SPI_MOSI_SD);
@@ -47,13 +43,6 @@ void Control::setup() {
       sizeof(
           SampleWithTimestamp));  // from testing, its only ever about 4 samples
 
-=======
-  m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL, 100000);
-  m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL, 100000);  // Initialize I2C buses
-  m_actuation->init();
-
-  m_adcADS->init(ADS0_ADDR);  // Use ADS0 address
->>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 #else
 #endif
 
@@ -106,13 +95,10 @@ void Control::begin() {
     vTaskDelete(analogTaskHandle);
   }
 
-<<<<<<< HEAD
   if (sdTaskHandle != nullptr) {
     vTaskDelete(sdTaskHandle);
   }
 
-=======
->>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
   // Create new tasks for serial data handling, LoRa data handling, and status
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate(
@@ -135,9 +121,6 @@ void Control::begin() {
 
   xTaskCreate([](void *param) { static_cast<Control *>(param)->sdTask(); },
               "sdTask", 8192, this, 3, &sdTaskHandle);
-
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->analogTask(); },
-              "AnalogTask", 4096, this, 3, &analogTaskHandle);
 
   ESP_LOGI(TAG, "Control begun!\n");
 
@@ -164,7 +147,6 @@ void Control::heartBeatTask() {
   }
 }
 
-<<<<<<< HEAD
 // void Control::analogTask() {
 //   m_adcADS->startContinuous(m_adcQueue);  // Start continuous ADC reading
 
@@ -180,30 +162,70 @@ void Control::heartBeatTask() {
 //   }
 // }
 
-void Control::analogTask() {
-  const TickType_t xFrequency = pdMS_TO_TICKS(1000.0f / (float)adcSPS);
-  TickType_t xLastWakeTime = xTaskGetTickCount();
+// --- Hardware timer-based sampling ---
 
+#include "driver/timer.h"
+#include "soc/timer_group_reg.h"
+#include "soc/timer_group_struct.h"
+
+// volatile bool analogSampleFlag = false;
+
+// void IRAM_ATTR onAnalogTimer(void *arg) {
+//   timer_group_clr_intr_status_in_isr(TIMER_GROUP_0, TIMER_0);
+//   analogSampleFlag = true;  // Set the flag to indicate a sample is ready
+//   TIMERG0.hw_timer[0].config.tn_alarm_en = 1;  // Explicitly re-enable alarm
+// }
+
+void Control::analogTask() {
   m_adcADS->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS,
                            ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
+  m_adcADS->setDataRate(adcSPS);
+  m_adcADS->startContinuous();
 
-  uint32_t startMicros = micros();
+  // Configure hardware timer (using timer group 0, timer 0)
 
-  // We'll assume m_adcADS->loadLastVolt() returns a float sample
+  // timer_config_t config = {
+  //     .alarm_en = TIMER_ALARM_EN,
+  //     .counter_en = TIMER_PAUSE,
+  //     .intr_type = TIMER_INTR_LEVEL,
+  //     .counter_dir = TIMER_COUNT_UP,
+  //     .auto_reload = TIMER_AUTORELOAD_EN,
+  //     .divider = 80  // 1us per tick (assuming 80MHz APB clk)
+  // };
+  // timer_init(TIMER_GROUP_0, TIMER_0, &config);
+  uint64_t interval_us = (uint64_t)(1e6 / (double)adcSPS);
+  TickType_t interval_ticks = pdMS_TO_TICKS((uint32_t)(interval_us / 1000));
+  // timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0);
+  // timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, interval_us);
+  // timer_enable_intr(TIMER_GROUP_0, TIMER_0);
+  // timer_isr_register(TIMER_GROUP_0, TIMER_0, onAnalogTimer, nullptr,
+  //                    ESP_INTR_FLAG_IRAM, nullptr);
+  // timer_start(TIMER_GROUP_0, TIMER_0);
 
-  m_adcADS->startContinuous(m_adcQueue);  // Start continuous ADC reading
+  // while (true) {
+  // if (analogSampleFlag) {
+  //   analogSampleFlag = false;
+  //   queueSample();
+  //   vTaskDelay(interval_ticks);  // Yield to other tasks
+  // }
+
+  uint32_t lastMicros = 0;
+
   while (true) {
-    SampleWithTimestamp sample;
+    lastMicros = micros();
+    queueSample();
+    vTaskDelay(interval_ticks);  // Yield to other tasks
 
-    // while (!m_adcADS->isReady());  // blocking but should be very fast
-    // Have a feeling that isReady is only for single shot mode
-
-    sample.value = m_adcADS->getLastVolt();
-    // sample.value = m_adcADS->readNewVolt();
-    sample.timestamp = micros() - startMicros;
-    xQueueSend(m_adcQueue, &sample, 0);
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    while ((micros() - lastMicros) < interval_us);
   }
+}
+
+void Control::queueSample() {
+  SampleWithTimestamp sample;
+  static uint32_t startMicros = micros();
+  sample.timestamp = micros() - startMicros;
+  sample.value = m_adcADS->getLastVolt();
+  xQueueSend(m_adcQueue, &sample, 0);
 }
 
 // void Control::analogTask() {
@@ -258,17 +280,6 @@ void Control::sdTask() {
     }
 
     vTaskDelay(pdMS_TO_TICKS(5));
-=======
-void Control::analogTask() {
-  while (true) {
-    float data = m_adcADS->readVolt();  // Read the voltage from the ADC
-    m_serialCom->sendData("ADC Data: ");
-    m_serialCom->sendData(
-        String(data, 4).c_str());  // Send the data with 4 decimal places
-    m_serialCom->sendData("\n");
-
-    vTaskDelay(pdMS_TO_TICKS(100));  // Delay for 1 second
->>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
   }
 }
 

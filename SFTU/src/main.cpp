@@ -8,7 +8,6 @@ Control* control = nullptr;
 void setup() {
   delay(1000);
   ESP_LOGI("Main", "Starting setup...");
-<<<<<<< HEAD
 
   esp_reset_reason_t reason = esp_reset_reason();
   ESP_LOGI("Main", "Reset reason: %d", reason);
@@ -18,13 +17,6 @@ void setup() {
   control->begin();
 }
 
-=======
-  control = new Control();
-  control->setup();
-  control->begin();
-}
-
->>>>>>> ba8e11dd8bb98570192ebf809580b7a0ed7731e4
 void loop() {
   vTaskDelay(pdMS_TO_TICKS(10000));  // random delay to allow tasks to run
 }
