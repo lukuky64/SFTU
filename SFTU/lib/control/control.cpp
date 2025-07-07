@@ -29,7 +29,7 @@ void Control::setup() {
   m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL);
   m_SPI_BUS->begin(SPI_CLK_SD, SPI_MISO_SD, SPI_MOSI_SD);
 
-  m_I2C_BUS->setClock(400'000);
+  m_I2C_BUS->setClock(100'000);
   m_ANALOG_I2C_BUS->setClock(400'000);
   m_SPI_BUS->setFrequency(40'000'000);
 
@@ -103,11 +103,11 @@ void Control::begin() {
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate(
       [](void *param) { static_cast<Control *>(param)->serialDataTask(); },
-      "SerialDataTask", 2048, this, 2, &SerialTaskHandle);
+      "SerialDataTask", 4096, this, 2, &SerialTaskHandle);
 
   xTaskCreate(
       [](void *param) { static_cast<Control *>(param)->loRaDataTask(); },
-      "LoRaDataTask", 2048, this, 2, &LoRaTaskHandle);
+      "LoRaDataTask", 4096, this, 2, &LoRaTaskHandle);
 
   xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); },
               "StatusTask", 4096, this, 1, &StatusTaskHandle);
@@ -177,7 +177,7 @@ void Control::heartBeatTask() {
 // }
 
 void Control::analogTask() {
-  m_adcADS->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS,
+  m_adcADS->setInputConfig(GAIN_FOUR, RATE_ADS1115_860SPS,
                            ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
   m_adcADS->setDataRate(adcSPS);
   m_adcADS->startContinuous();
@@ -242,6 +242,7 @@ void Control::queueSample() {
 // }
 
 void Control::sdTask() {
+  pinMode(INDICATOR_LED3, OUTPUT);
   const size_t blockSize = 512;
   static SampleWithTimestamp *block = nullptr;
   if (!block) {
@@ -255,12 +256,12 @@ void Control::sdTask() {
   }
   size_t count = 0;
 
-  m_sdTalker->startNewLog("/log");  // Start a new log file for analog data
-
   const TickType_t blockTimeout =
       pdMS_TO_TICKS(1000);  // Max wait before flushing
   TickType_t lastBlockTime = xTaskGetTickCount();
   while (true) {
+    m_sdTalker->startNewLog("/log");  // Start a new log file for analog data
+
     // Wait for a sample, but with a timeout
     if (xQueueReceive(m_adcQueue, &block[count], blockTimeout)) {
       count++;
@@ -274,7 +275,10 @@ void Control::sdTask() {
     if (count >= blockSize ||
         (count > 0 && (now - lastBlockTime) >= blockTimeout)) {
       // Write both value and timestamp to SD (update SD_Talker as needed)
-      m_sdTalker->writeBlockToSD(block, count);
+      bool blockWritten = m_sdTalker->writeBlockToSD(block, count);
+      if (blockWritten) {
+        digitalWrite(INDICATOR_LED3, !digitalRead(INDICATOR_LED3));
+      }
       count = 0;
       lastBlockTime = now;
     }

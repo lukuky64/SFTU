@@ -44,7 +44,7 @@ class SD_Talker {
   // New overload for value+timestamp
   bool writeBlockToSD(const SampleWithTimestamp *block, size_t count);
   // Old version for backward compatibility
-  bool writeBlockToSD(const float *block, size_t count);
+  // bool writeBlockToSD(const float *block, size_t count);
   bool startNewLog(String filePrefix);
 
  private:

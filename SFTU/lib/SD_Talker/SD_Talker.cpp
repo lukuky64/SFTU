@@ -247,6 +247,11 @@ bool SD_Talker::writeBlockToSD(const SampleWithTimestamp *block, size_t count) {
              "Attempted to write to SD card, but file is not open.");
     return false;
   }
+
+  if (digitalRead(m_cardDetectPin)) {
+    return false;  // active LOW, so if HIGH, card is not present
+  }
+
   // Write each sample as CSV: timestamp,value
   for (size_t i = 0; i < count; ++i) {
     dataFile.print(block[i].timestamp);
@@ -263,23 +268,23 @@ bool SD_Talker::writeBlockToSD(const SampleWithTimestamp *block, size_t count) {
 }
 
 // Old version for backward compatibility
-bool SD_Talker::writeBlockToSD(const float *block, size_t count) {
-  if (!fileOpen) {
-    ESP_LOGE("SD_Talker",
-             "Attempted to write to SD card, but file is not open.");
-    return false;
-  }
-  for (size_t i = 0; i < count; ++i) {
-    dataFile.print(block[i], 4);
-    dataFile.print('\n');
-  }
-  dataFile.flush();
-  if (!dataFile) {
-    ESP_LOGE("SD_Talker", "SD write error after block write.");
-    return false;
-  }
-  return true;
-}
+// bool SD_Talker::writeBlockToSD(const float *block, size_t count) {
+//   if (!fileOpen) {
+//     ESP_LOGE("SD_Talker",
+//              "Attempted to write to SD card, but file is not open.");
+//     return false;
+//   }
+//   for (size_t i = 0; i < count; ++i) {
+//     dataFile.print(block[i], 4);
+//     dataFile.print('\n');
+//   }
+//   dataFile.flush();
+//   if (!dataFile) {
+//     ESP_LOGE("SD_Talker", "SD write error after block write.");
+//     return false;
+//   }
+//   return true;
+// }
 
 bool SD_Talker::startNewLog(String filePrefix) {
   if (!checkFileOpen()) {
