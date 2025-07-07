@@ -39,10 +39,13 @@ class adcADS : public adcBase {
                       uint8_t dataRate = RATE_ADS1115_128SPS,
                       int mux = ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
 
+  float getAverageVolt(uint16_t numSamples);
+
  private:
   Adafruit_ADS1115 *m_adc;
   int m_mux;
   TwoWire *m_I2C_BUS;
+  bool continuousMode = false;
 
   // Add any private members or methods needed for the ADS ADC implementation
 };

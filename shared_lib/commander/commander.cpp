@@ -2,11 +2,12 @@
 
 #ifdef SFTU
 Commander::Commander(SerialCom* serialCom, LoRaCom* loraCom,
-                     Actuation* actuation) {
-  memset(m_command, 0, sizeof(m_command));  // Initialize command buffer
-  m_serialCom = serialCom;                  // Initialize the SerialCom instance
-  m_loraCom = loraCom;                      // Initialize the LoRaCom instance
-  m_actuation = actuation;                  // Initialize the Actuation instance
+                     Actuation* actuation, adcADS* adcADS) {
+  memset(m_command, 0, sizeof(m_command));
+  m_serialCom = serialCom;
+  m_loraCom = loraCom;
+  m_actuation = actuation;
+  m_adcADS = adcADS;
   ESP_LOGD(TAG, "Commander initialised");
 }
 #else
@@ -144,8 +145,31 @@ void Commander::handle_set_OUTPUT() {
   ESP_LOGI(TAG, "Setting output to %s", ioState ? "ON" : "OFF");
   m_actuation->setDigital(outputPin, (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
 }
+
+void Commander::handle_calibrateCell() {
+  ESP_LOGD(TAG, "Calibrate cell command executing");
+
+  char* data = readAndRemove();  // Read and remove the command token
+
+  // convert to integer
+  if (data == nullptr) {
+    ESP_LOGW(TAG, "Empty data received for calibration, expecting <float>");
+    return;
+  }
+
+  float objectMass = static_cast<float>(atof(data));  // Cast to float
+
+  float averageVoltage = m_adcADS->getAverageVolt(200);
+
+  calibrate(objectMass, averageVoltage);
+}
+
 #else
 void Commander::handle_set_OUTPUT() {
+  ESP_LOGD(TAG, "Command not implemented for this build");
+}
+
+void Commander::handle_calibrateCell() {
   ESP_LOGD(TAG, "Command not implemented for this build");
 }
 #endif

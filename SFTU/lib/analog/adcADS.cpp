@@ -23,12 +23,14 @@ void adcADS::setInputConfig(adsGain_t gain, uint8_t dataRate, int mux) {
 }
 
 void adcADS::startContinuous() {
-  m_adc->startADCReading(m_mux, true);
-  //
+  // Start continuous ADC reading
+  continuousMode = true;
+  m_adc->startADCReading(m_mux, continuousMode);
 }
 
 float adcADS::readNewVolt() {
-  m_adc->startADCReading(m_mux, false);
+  continuousMode = false;
+  m_adc->startADCReading(m_mux, continuousMode);
 
   // Wait for the conversion to complete
   while (!m_adc->conversionComplete());
@@ -109,4 +111,19 @@ bool adcADS::setGain(int gain) {
   m_adc->setGain(adsGain);
   ESP_LOGI(TAG, "Gain set to %d", gain);
   return true;
+}
+
+float adcADS::getAverageVolt(uint16_t numSamples) {
+  float averageSample = 0.0f;
+  for (int i = 0; i < numSamples; ++i) {
+    if (continuousMode) {
+      averageSample += getLastVolt();
+    } else {
+      averageSample += readNewVolt();
+    }
+    // vTaskDelay(1);
+  }
+  averageSample /= numSamples;
+  ESP_LOGD(TAG, "Average sample voltage: %.3f V", averageSample);
+  return averageSample;
 }

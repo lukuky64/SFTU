@@ -10,12 +10,14 @@
 #include "Wire.h"
 #include "adcADS.hpp"
 #include "commander.hpp"
+#include "display.hpp"
 #include "driver/timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #ifdef SFTU
+#include "ADCprocessing.hpp"
 #include "SD_Talker.hpp"
 #include "actuation.hpp"
 
@@ -65,6 +67,7 @@ class Control {
   LoRaCom *m_LoRaCom;
   Commander *m_commander;
   SD_Talker *m_sdTalker;
+  Display *m_display;
 
 #ifdef SFTU
   Actuation *m_actuation;
@@ -87,6 +90,7 @@ class Control {
   TaskHandle_t heartBeatTaskHandle = nullptr;
   TaskHandle_t analogTaskHandle = nullptr;
   TaskHandle_t sdTaskHandle = nullptr;
+  TaskHandle_t displayTaskHandle = nullptr;
 
   void serialDataTask();
   void loRaDataTask();
@@ -94,6 +98,7 @@ class Control {
   void heartBeatTask();
   void analogTask();
   void sdTask();
+  void displayTask();
 
   volatile bool adcSampleFlag = false;
 

@@ -40,7 +40,7 @@ void Display::drawForce(float forceInput, bool updateDisp) {
   display.setCursor(cursorX, cursorY);
 
   int16_t force =
-      static_cast<int16_t>(round(constrain(forceInput, -20000, 20000)));
+      static_cast<int16_t>(round(constrain(forceInput, -100'000, 100'000)));
 
   char buf[6];
   sprintf(buf, "%05d", abs(force));

@@ -292,7 +292,7 @@ bool SD_Talker::startNewLog(String filePrefix) {
 
     // setStartTime();
 
-    String startMsg = "Time(s), Data(?)";  // Should always Log time
+    String startMsg = "Time(s), Force(N)";  // Should always Log time
 
     // if (Params::LOG_STATE) {
     //   startMsg += ",State()";

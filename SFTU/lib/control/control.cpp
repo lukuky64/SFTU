@@ -6,20 +6,22 @@ Control::Control() {
   m_I2C_BUS = new TwoWire(1);
   m_SPI_BUS = new SPIClass();
 
-  m_serialCom = new SerialCom();  // Initialize SerialCom instance
-  m_LoRaCom = new LoRaCom();      // Initialize LoRaCom instance
+  m_serialCom = new SerialCom();
+  m_LoRaCom = new LoRaCom();
 
-  m_adcADS = new adcADS(*m_ANALOG_I2C_BUS);  // Initialize adcADS instance
+  m_adcADS = new adcADS(*m_ANALOG_I2C_BUS);
 
-  m_sdTalker = new SD_Talker();  // Initialize SD_Talker instance
+  m_sdTalker = new SD_Talker();
 
 #ifdef SFTU
   m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L,
                               PCA6408A_SLAVE_ADDRESS_H, *m_I2C_BUS);
-  m_commander = new Commander(m_serialCom, m_LoRaCom, m_actuation);
+  m_commander = new Commander(m_serialCom, m_LoRaCom, m_actuation, m_adcADS);
+
+  m_display = new Display();
 #else
   m_commander = new Commander(m_serialCom, m_LoRaCom);
-  m_saveFlash = new SaveFlash(m_serialCom);  // Initialize SaveFlash instance
+  m_saveFlash = new SaveFlash(m_serialCom);
 #endif
 }
 
@@ -29,9 +31,12 @@ void Control::setup() {
   m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL);
   m_SPI_BUS->begin(SPI_CLK_SD, SPI_MISO_SD, SPI_MOSI_SD);
 
-  m_I2C_BUS->setClock(100'000);
+  m_I2C_BUS->setClock(400'000);
   m_ANALOG_I2C_BUS->setClock(400'000);
   m_SPI_BUS->setFrequency(40'000'000);
+
+  m_display->init(*m_I2C_BUS);  // Initialize the display
+  m_display->begin();           // Begin the display
 
   m_actuation->init();
   m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
@@ -99,6 +104,10 @@ void Control::begin() {
     vTaskDelete(sdTaskHandle);
   }
 
+  if (displayTaskHandle != nullptr) {
+    vTaskDelete(displayTaskHandle);
+  }
+
   // Create new tasks for serial data handling, LoRa data handling, and status
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate(
@@ -121,6 +130,9 @@ void Control::begin() {
 
   xTaskCreate([](void *param) { static_cast<Control *>(param)->sdTask(); },
               "sdTask", 8192, this, 3, &sdTaskHandle);
+
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->displayTask(); },
+              "sdTask", 4096, this, 1, &displayTaskHandle);
 
   ESP_LOGI(TAG, "Control begun!\n");
 
@@ -164,10 +176,6 @@ void Control::heartBeatTask() {
 
 // --- Hardware timer-based sampling ---
 
-#include "driver/timer.h"
-#include "soc/timer_group_reg.h"
-#include "soc/timer_group_struct.h"
-
 // volatile bool analogSampleFlag = false;
 
 // void IRAM_ATTR onAnalogTimer(void *arg) {
@@ -175,6 +183,19 @@ void Control::heartBeatTask() {
 //   analogSampleFlag = true;  // Set the flag to indicate a sample is ready
 //   TIMERG0.hw_timer[0].config.tn_alarm_en = 1;  // Explicitly re-enable alarm
 // }
+
+void Control::displayTask() {
+  while (true) {
+    // Update the display with the current force value
+    if (m_adcQueue != nullptr) {
+      SampleWithTimestamp sample;
+      if (xQueuePeek(m_adcQueue, &sample, pdMS_TO_TICKS(100))) {
+        m_display->drawForce(sample.value, true);
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(40));
+  }
+}
 
 void Control::analogTask() {
   m_adcADS->setInputConfig(GAIN_FOUR, RATE_ADS1115_860SPS,
@@ -209,8 +230,10 @@ void Control::analogTask() {
   //   vTaskDelay(interval_ticks);  // Yield to other tasks
   // }
 
-  uint32_t lastMicros = 0;
+  float averageSample = m_adcADS->getAverageVolt(200);
+  tareVolts(averageSample);
 
+  uint32_t lastMicros = 0;
   while (true) {
     lastMicros = micros();
     queueSample();
@@ -224,7 +247,7 @@ void Control::queueSample() {
   SampleWithTimestamp sample;
   static uint32_t startMicros = micros();
   sample.timestamp = micros() - startMicros;
-  sample.value = m_adcADS->getLastVolt();
+  sample.value = processVtoN(m_adcADS->getLastVolt());
   xQueueSend(m_adcQueue, &sample, 0);
 }
 

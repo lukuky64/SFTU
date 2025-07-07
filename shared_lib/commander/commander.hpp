@@ -8,7 +8,9 @@
 #include "SerialCom.hpp"
 
 #ifdef SFTU
+#include "ADCprocessing.hpp"
 #include "actuation.hpp"
+#include "adcADS.hpp"
 #endif
 
 #define c_cmp(a, b) (strcmp(a, b) == 0)
@@ -16,7 +18,8 @@
 class Commander {
  public:
 #ifdef SFTU
-  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation);
+  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation,
+            adcADS *adcADS);
 #else
   Commander(SerialCom *serialCom, LoRaCom *loraCom);
 #endif
@@ -31,6 +34,7 @@ class Commander {
 
 #ifdef SFTU
   Actuation *m_actuation;
+  adcADS *m_adcADS;
 #endif
 
   typedef void (Commander::*Handler)();
@@ -55,6 +59,9 @@ class Commander {
                                          // spreading factor"
   void handle_update_bandwidthKHz();  // Command handler for "update bandwidth"
 
+  void handle_calibrateCell();  // Command handler for "calibrateCell"
+  // void handle_tareCell();       // Command handler for "tareCell"
+
   void handle_set_help();
   void handle_set_OUTPUT();
 
@@ -67,12 +74,15 @@ class Commander {
       {"mode", &Commander::handle_mode},
       {nullptr, nullptr}};
 
-  static constexpr const HandlerMap update_handler[6] = {
+  static constexpr const HandlerMap update_handler[7] = {
       {"help", &Commander::handle_update_help},
       {"gain", &Commander::handle_update_gain},
       {"freqMhz", &Commander::handle_update_freqMhz},
       {"sf", &Commander::handle_update_spreadingFactor},
       {"bwKHz", &Commander::handle_update_bandwidthKHz},
+
+      {"calibrateCell", &Commander::handle_calibrateCell},
+      // {"tareCell", &Commander::handle_tareCell},
       {nullptr, nullptr}};
 
   static constexpr const HandlerMap set_handler[3] = {
