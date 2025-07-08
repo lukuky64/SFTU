@@ -43,16 +43,14 @@ class SD_Talker {
   bool checkFileOpen();
   // New overload for value+timestamp
   bool writeBlockToSD(const SampleWithTimestamp *block, size_t count);
-  // Old version for backward compatibility
-  // bool writeBlockToSD(const float *block, size_t count);
   bool startNewLog(String filePrefix);
 
  private:
   File dataFile;
   String fileName;
-  bool fileOpen;
   String buffer;
-  bool initialised;
+  bool m_initialised;
+  bool m_fileOpen;
 
   uint8_t m_cardDetectPin;
 

@@ -36,7 +36,6 @@ void Control::setup() {
   m_SPI_BUS->setFrequency(40'000'000);
 
   m_display->init(*m_I2C_BUS);  // Initialize the display
-  m_display->begin();           // Begin the display
 
   m_actuation->init();
   m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
@@ -185,11 +184,15 @@ void Control::heartBeatTask() {
 // }
 
 void Control::displayTask() {
+  vTaskDelay(pdMS_TO_TICKS(500));
+  // m_display->dim(true);
+  m_display->begin();  // Begin the display
+
   while (true) {
     // Update the display with the current force value
     if (m_adcQueue != nullptr) {
       SampleWithTimestamp sample;
-      if (xQueuePeek(m_adcQueue, &sample, pdMS_TO_TICKS(100))) {
+      if (xQueuePeek(m_adcQueue, &sample, pdMS_TO_TICKS(10))) {
         m_display->drawForce(sample.value, true);
       }
     }
@@ -249,8 +252,13 @@ void Control::queueSample() {
   sample.timestamp = micros() - startMicros;
   sample.value = processVtoN(m_adcADS->getLastVolt());
   xQueueSend(m_adcQueue, &sample, 0);
+  if (xQueueSend(m_adcQueue, &sample, 0) != pdPASS) {
+    // Queue is full, remove oldest and try again
+    SampleWithTimestamp dummy;
+    xQueueReceive(m_adcQueue, &dummy, 0);
+    xQueueSend(m_adcQueue, &sample, 0);
+  }
 }
-
 // void Control::analogTask() {
 //   while (true) {
 //     if (adcSampleFlag) {
@@ -266,26 +274,22 @@ void Control::queueSample() {
 
 void Control::sdTask() {
   pinMode(INDICATOR_LED3, OUTPUT);
-  const size_t blockSize = 512;
-  static SampleWithTimestamp *block = nullptr;
-  if (!block) {
-    block =
-        (SampleWithTimestamp *)malloc(sizeof(SampleWithTimestamp) * blockSize);
-    if (!block) {
-      ESP_LOGE(TAG, "Failed to allocate block buffer for SD task!");
-      vTaskDelete(nullptr);
-      return;
-    }
-  }
+  constexpr size_t blockSize = 512;
+  static SampleWithTimestamp block[blockSize];
+
   size_t count = 0;
 
-  const TickType_t blockTimeout =
-      pdMS_TO_TICKS(1000);  // Max wait before flushing
-  TickType_t lastBlockTime = xTaskGetTickCount();
-  while (true) {
-    m_sdTalker->startNewLog("/log");  // Start a new log file for analog data
+  // Max wait before flushing
+  const TickType_t blockTimeout = pdMS_TO_TICKS(1000);
 
-    // Wait for a sample, but with a timeout
+  TickType_t lastBlockTime = xTaskGetTickCount();
+
+  while (true) {
+    while (!m_sdTalker->checkFileOpen()) {
+      m_sdTalker->startNewLog("/log");
+      vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
     if (xQueueReceive(m_adcQueue, &block[count], blockTimeout)) {
       count++;
       // Try to fill the block as much as possible, but don't block
@@ -293,6 +297,7 @@ void Control::sdTask() {
         count++;
       }
     }
+
     // Write if block is full or timeout has passed and we have data
     TickType_t now = xTaskGetTickCount();
     if (count >= blockSize ||
@@ -301,11 +306,12 @@ void Control::sdTask() {
       bool blockWritten = m_sdTalker->writeBlockToSD(block, count);
       if (blockWritten) {
         digitalWrite(INDICATOR_LED3, !digitalRead(INDICATOR_LED3));
+      } else {
+        digitalWrite(INDICATOR_LED3, LOW);
       }
       count = 0;
       lastBlockTime = now;
     }
-
     vTaskDelay(pdMS_TO_TICKS(5));
   }
 }

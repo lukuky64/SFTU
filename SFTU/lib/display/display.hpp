@@ -4,6 +4,7 @@
 #include <Adafruit_SSD1306.h>
 #include <Arduino.h>
 #include <Wire.h>
+
 #include "bitMaps.hpp"
 
 struct mainPageStatus {
@@ -33,6 +34,8 @@ class Display {
   void showSuccess(String msg);
   void showError(String msg, uint16_t duration_ms);
   void updateForce(float forceInput);
+
+  void dim(bool dim_ = true) { display.dim(dim_); }
 
  private:
   float m_force = 0.0f;
