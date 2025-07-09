@@ -18,6 +18,7 @@
 
 #ifdef SFTU
 #include "ADCprocessing.hpp"
+#include "BattMonitor.hpp"
 #include "SD_Talker.hpp"
 #include "actuation.hpp"
 
@@ -68,6 +69,7 @@ class Control {
   Commander *m_commander;
   SD_Talker *m_sdTalker;
   Display *m_display;
+  BattMonitor *m_battMonitor;
 
 #ifdef SFTU
   Actuation *m_actuation;
@@ -79,18 +81,37 @@ class Control {
 
   unsigned long serial_Interval = 100;
   unsigned long lora_Interval = 100;
-  unsigned long status_Interval = 2'000;
+  unsigned long status_Interval = 5'000;
   unsigned long heartBeat_Interval = 500;
 
   static constexpr const char *TAG = "Control";
 
-  TaskHandle_t SerialTaskHandle = nullptr;
-  TaskHandle_t LoRaTaskHandle = nullptr;
-  TaskHandle_t StatusTaskHandle = nullptr;
-  TaskHandle_t heartBeatTaskHandle = nullptr;
-  TaskHandle_t analogTaskHandle = nullptr;
-  TaskHandle_t sdTaskHandle = nullptr;
-  TaskHandle_t displayTaskHandle = nullptr;
+  struct handles {
+    TaskHandle_t SerialTaskHandle = nullptr;
+    TaskHandle_t LoRaTaskHandle = nullptr;
+    TaskHandle_t StatusTaskHandle = nullptr;
+    TaskHandle_t heartBeatTaskHandle = nullptr;
+    TaskHandle_t analogTaskHandle = nullptr;
+    TaskHandle_t sdTaskHandle = nullptr;
+    TaskHandle_t displayTaskHandle = nullptr;
+  };
+
+  handles m_taskHandles;
+
+  struct HandleMap {
+    String name;
+    TaskHandle_t *handle;
+  };
+
+  HandleMap m_taskHandleMap[7] = {
+      {"SerialTaskHandle", &m_taskHandles.SerialTaskHandle},
+      {"LoRaTaskHandle", &m_taskHandles.LoRaTaskHandle},
+      {"StatusTaskHandle", &m_taskHandles.StatusTaskHandle},
+      {"heartBeatTaskHandle", &m_taskHandles.heartBeatTaskHandle},
+      {"analogTaskHandle", &m_taskHandles.analogTaskHandle},
+      {"sdTaskHandle", &m_taskHandles.sdTaskHandle},
+      {"displayTaskHandle", &m_taskHandles.displayTaskHandle},
+  };
 
   void serialDataTask();
   void loRaDataTask();
@@ -99,6 +120,7 @@ class Control {
   void analogTask();
   void sdTask();
   void displayTask();
+  void checkTaskStack();
 
   volatile bool adcSampleFlag = false;
 
@@ -106,12 +128,12 @@ class Control {
   void processData(const char *buffer);
   void queueSample();
 
-  String deviceID = "transceiver";  // Unique identifier for the device
+  String deviceID = "SFTU";  // Unique identifier for the device
 
   // Mode of operation (transmit, receive, transceive, etc.)
   String m_mode = "transceive";
   String m_status = "ok";  // Status of the device (e.g., "ok", "error", etc.)
-  float m_batteryLevel = 100.0;  // Battery level as a percentage (0-100)
+  float m_batteryVoltage = 0;
 
   xQueueHandle m_adcQueue;
   uint16_t adcSPS = 860;  // Set the data rate for the ADC

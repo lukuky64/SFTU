@@ -58,6 +58,8 @@ bool LoRaCom::getMessage(char *buffer, size_t len) {
   return false;
 }
 
+bool LoRaCom::checkRx() { return RxFlag; }
+
 int32_t LoRaCom::getRssi() {
   return radio->getRSSI();  // Return the last received signal strength
 }

@@ -39,6 +39,7 @@ class LoRaCom {
 
   void sendMessage(const char *msg);  // overloaded function
   bool getMessage(char *buffer, size_t len);
+  bool checkRx();
   int32_t getRssi();
 
   bool setOutGain(int8_t gain);

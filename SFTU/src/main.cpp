@@ -6,7 +6,6 @@
 Control* control = nullptr;
 
 void setup() {
-  delay(1000);
   ESP_LOGI("Main", "Starting setup...");
 
   esp_reset_reason_t reason = esp_reset_reason();
@@ -14,11 +13,12 @@ void setup() {
 
   control = new Control();
   control->setup();
+  vTaskDelay(pdMS_TO_TICKS(1'000));  // allow everything to settle
   control->begin();
 }
 
 void loop() {
-  vTaskDelay(pdMS_TO_TICKS(10000));  // random delay to allow tasks to run
+  vTaskDelay(pdMS_TO_TICKS(10'000));  // delay to allow tasks to run
 }
 
 // #include "HX711.h"
