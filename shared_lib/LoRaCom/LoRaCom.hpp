@@ -14,29 +14,27 @@ class LoRaCom {
   LoRaCom();
 
   template <typename RadioType>
-  bool begin(uint8_t CLK, uint8_t MISO, uint8_t MOSI, uint8_t csPin,
-             uint8_t intPin, uint8_t RST, int8_t power, int8_t BUSY = -1) {
+  bool begin(uint8_t CLK, uint8_t MISO, uint8_t MOSI, uint8_t csPin, uint8_t intPin, uint8_t RST, int8_t power, int8_t BUSY = -1) {
     SPI.begin(CLK, MISO, MOSI, csPin);
 
-    radio = new RadioType((BUSY == -1) ? new Module(csPin, intPin, RST)
-                                       : new Module(csPin, intPin, RST, BUSY));
+    radio = new RadioType((BUSY == -1) ? new Module(csPin, intPin, RST) : new Module(csPin, intPin, RST, BUSY));
 
-    float freqMHz = 930.0f;   // Default frequency for LoRa <137.0 - 960.0> MHz
-    float bw = 125.0f;        // Default bandwidth for LoRa <7.8 - 510.0> kHz
-    int8_t sf = 9;            // Spreading factor <5 - 12>
-    uint8_t cr = 5;           // Coding rate denominator (4/cr) <5 - 8>
-    uint8_t syncWord = 0x12;  // sync word for private LoRa
-    uint16_t preambleLength = 20;  // preamble length in symbols
+    float freqMHz = 915.0f;        // Default frequency for LoRa <137.0 - 960.0> MHz
+    float bw = 62.5f;              // Default bandwidth for LoRa <7.8 - 510.0> kHz
+    int8_t sf = 9;                 // Spreading factor <5 - 12>
+    uint8_t cr = 5;                // Coding rate denominator (4/cr) <5 - 8>
+    uint8_t syncWord = 0x12;       // sync word for private LoRa
+    uint16_t preambleLength = 16;  // preamble length in symbols
 
     int state = RADIOLIB_ERR_NONE;
 
-    state |= static_cast<RadioType *>(radio)->begin(
-        freqMHz, bw, sf, cr, syncWord, power, preambleLength);
+    state |= static_cast<RadioType *>(radio)->begin(freqMHz, bw, sf, cr, syncWord, power, preambleLength);
 
     state |= static_cast<RadioType *>(radio)->forceLDRO(true);
 
     if (radioType == RADIO_SX126X) {
       state |= static_cast<SX1262 *>(radio)->setRegulatorLDO();
+      state |= static_cast<SX1262 *>(radio)->setCurrentLimit(140);  // set max current limit to 140 mA
       state |= static_cast<SX1262 *>(radio)->calibrateImage(freqMHz);
       state |= static_cast<SX1262 *>(radio)->setRxBoostedGainMode(true, true);
     }
