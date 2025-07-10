@@ -70,8 +70,8 @@ class TestStatusManager(unittest.TestCase):
     
     def setUp(self):
         """Set up test fixtures."""
-        self.rssi_callback = Mock()
-        self.manager = StatusManager(self.rssi_callback)
+        self.status_callback = Mock()
+        self.manager = StatusManager(self.status_callback)
     
     def test_process_valid_status_line(self):
         """Test processing a valid status line."""
@@ -81,8 +81,13 @@ class TestStatusManager(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.device_id, "SFTU")
         
-        # Check that RSSI callback was called
-        self.rssi_callback.assert_called_once_with("SFTU", "-45")
+        # Check that status callback was called with device_id and DeviceStatus object
+        self.status_callback.assert_called_once()
+        args = self.status_callback.call_args[0]
+        self.assertEqual(args[0], "SFTU")  # device_id
+        self.assertIsInstance(args[1], DeviceStatus)  # DeviceStatus object
+        self.assertEqual(args[1].device_id, "SFTU")
+        self.assertEqual(args[1].rssi, "-45")
     
     def test_process_invalid_status_line(self):
         """Test processing an invalid status line."""
@@ -90,7 +95,7 @@ class TestStatusManager(unittest.TestCase):
         result = self.manager.process_status_line(line)
         
         self.assertIsNone(result)
-        self.rssi_callback.assert_not_called()
+        self.status_callback.assert_not_called()
     
     def test_get_device_status(self):
         """Test retrieving device status."""
@@ -190,6 +195,68 @@ class TestDeviceStatus(unittest.TestCase):
         self.assertEqual(status.battery_voltage, "")
         self.assertEqual(status.mode, "")
         self.assertEqual(status.status, "")
+
+
+class TestUIManager(unittest.TestCase):
+    """Test cases for the UIManager frequency validation."""
+    
+    def test_validate_frequency_valid(self):
+        """Test frequency validation with valid values."""
+        from ui_manager import UIManager
+        from unittest.mock import Mock
+        
+        # Mock the main window and UI
+        mock_window = Mock()
+        
+        # We'll test the validation logic directly
+        ui_manager = UIManager.__new__(UIManager)  # Create without calling __init__
+        
+        # Test valid frequencies (within the 900-1000 MHz range)
+        result = ui_manager.validate_frequency("950.5")
+        valid, msg, value = result
+        self.assertTrue(valid)
+        self.assertEqual(msg, "")
+        self.assertEqual(value, 950.5)
+        
+        valid, msg, value = ui_manager.validate_frequency("1000")
+        self.assertTrue(valid)
+        self.assertEqual(msg, "")
+        self.assertEqual(value, 1000.0)
+        
+        valid, msg, value = ui_manager.validate_frequency("900")
+        self.assertTrue(valid)
+        self.assertEqual(msg, "")
+        self.assertEqual(value, 900.0)
+    
+    def test_validate_frequency_invalid_format(self):
+        """Test frequency validation with invalid format."""
+        from ui_manager import UIManager
+        
+        ui_manager = UIManager.__new__(UIManager)
+        
+        # Test invalid formats
+        valid, msg, value = ui_manager.validate_frequency("abc")
+        self.assertFalse(valid)
+        self.assertIn("Invalid frequency format", msg)
+        
+        valid, msg, value = ui_manager.validate_frequency("")
+        self.assertFalse(valid)
+        self.assertIn("Frequency field is empty", msg)
+    
+    def test_validate_frequency_out_of_range(self):
+        """Test frequency validation with out of range values."""
+        from ui_manager import UIManager
+        
+        ui_manager = UIManager.__new__(UIManager)
+        
+        # Test out of range values (based on 900-1000 MHz range)
+        valid, msg, value = ui_manager.validate_frequency("50")  # Too low
+        self.assertFalse(valid)
+        self.assertIn("Frequency must be between", msg)
+        
+        valid, msg, value = ui_manager.validate_frequency("1500")  # Too high
+        self.assertFalse(valid)
+        self.assertIn("Frequency must be between", msg)
 
 
 if __name__ == "__main__":

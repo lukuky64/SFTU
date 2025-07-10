@@ -95,17 +95,17 @@ class StatusParser:
 class StatusManager:
     """Manages device status information and updates."""
     
-    def __init__(self, rssi_update_callback=None):
+    def __init__(self, status_update_callback=None):
         """
         Initialize status manager.
         
         Args:
-            rssi_update_callback: Callback function for RSSI updates
-                                 Should accept (device_id, rssi_value)
+            status_update_callback: Callback function for status updates
+                                   Should accept (device_id, device_status)
         """
         self.parser = StatusParser()
         self.device_statuses: Dict[str, DeviceStatus] = {}
-        self.rssi_update_callback = rssi_update_callback
+        self.status_update_callback = status_update_callback
     
     def process_status_line(self, line: str) -> Optional[DeviceStatus]:
         """
@@ -125,9 +125,9 @@ class StatusManager:
         # Store the status
         self.device_statuses[device_status.device_id] = device_status
         
-        # Update RSSI displays if callback is provided
-        if self.rssi_update_callback and device_status.rssi != "N/A":
-            self.rssi_update_callback(device_status.device_id, device_status.rssi)
+        # Update device display if callback is provided
+        if self.status_update_callback:
+            self.status_update_callback(device_status.device_id, device_status)
         
         return device_status
     

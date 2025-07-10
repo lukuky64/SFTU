@@ -1,10 +1,3 @@
-"""
-SFTU GUI Application - Main Entry Point
-
-A PySide6-based GUI application for communicating with SFTU (Short Form Transceiver Unit) devices.
-This application provides a user interface for serial communication, device monitoring, and status display.
-"""
-
 import sys
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QApplication, QMainWindow
@@ -27,7 +20,7 @@ class SFTUApplication(QMainWindow):
         self.ui_manager = UIManager(self)
         self.console_manager = ConsoleManager(self.ui_manager.get_ui().consoleOutput)
         self.serial_port = SerialPort()
-        self.status_manager = StatusManager(self._update_rssi_display)
+        self.status_manager = StatusManager(self._update_device_status_display)
         
         # Track connection state
         self.is_connected = False
@@ -58,6 +51,18 @@ class SFTUApplication(QMainWindow):
         
         # Console controls
         ui.clearConsole.clicked.connect(self.console_manager.clear)
+        
+        # LoRa updates
+        self.ui_manager.setup_frequency_button(self._update_frequency)
+        self.ui_manager.setup_bandwidth_button(self._update_bandwidth)
+        self.ui_manager.setup_spreadingFactor_button(self._update_spreadingFactor)
+        self.ui_manager.setup_gain_button(self._update_gain)
+
+        # Output states - track state of all 8 outputs
+        self.output_states = [False] * 8  # List to track states of outputs 1-8
+
+        # Output control - setup all 8 output buttons
+        self.ui_manager.setup_output_buttons(self._update_output)
     
     def _refresh_ports(self) -> None:
         """Refresh the list of available serial ports."""
@@ -78,8 +83,10 @@ class SFTUApplication(QMainWindow):
         """Toggle serial port connection."""
         if self.is_connected:
             self._disconnect()
+            self.ui_manager.set_update_buttons_enabled(False)
         else:
             self._connect()
+            self.ui_manager.set_update_buttons_enabled(True)
     
     def _connect(self) -> None:
         """Connect to the selected serial port."""
@@ -145,15 +152,116 @@ class SFTUApplication(QMainWindow):
         """
         self.console_manager.append_message(f"❌ {error_message}", "system")
     
-    def _update_rssi_display(self, device_id: str, rssi_value: str) -> None:
+    def _update_device_status_display(self, device_id: str, device_status) -> None:
         """
-        Update RSSI display for a device.
+        Update device status display.
         
         Args:
             device_id: Device identifier
-            rssi_value: RSSI value to display
+            device_status: DeviceStatus object with device information
         """
-        self.ui_manager.update_rssi_display(device_id, rssi_value)
+        self.ui_manager.update_device_status_display(device_id, device_status)
+    
+    def _update_frequency(self) -> None:
+        """Handle frequency update button press."""
+
+        # Get and validate frequency
+        freq_str = self.ui_manager.get_frequency_value()
+        is_valid, error_message, freq_value = self.ui_manager.validate_value(freq_str, 900.0, 1000.0)
+        
+        if not is_valid:
+            self.console_manager.append_message(f"❌ {error_message}", "system")
+            return
+        
+        command = f"command update freqMhz {freq_value}"
+        self._update_CMD(command)
+
+    def _update_bandwidth(self) -> None:
+        """Handle bandwidth update button press."""
+
+        # Get and validate bandwidth
+        bandw_str = self.ui_manager.get_bandwidth_value()
+        is_valid, error_message, bw_value = self.ui_manager.validate_value(bandw_str, 5.0, 510.0)
+        
+        if not is_valid:
+            self.console_manager.append_message(f"❌ {error_message}", "system")
+            return
+        
+        command = f"command update bwKHz {bw_value}"
+        self._update_CMD(command)
+
+    def _update_spreadingFactor(self) -> None:
+        """Handle spreading factor update button press."""
+
+        # Get and validate spreading factor
+        sf_str = self.ui_manager.get_spreadingFactor_value()
+        is_valid, error_message, sf_value = self.ui_manager.validate_value(sf_str, 7.0, 12.0)
+        
+        if not is_valid:
+            self.console_manager.append_message(f"❌ {error_message}", "system")
+            return
+        
+        command = f"command update sf {sf_value}"
+        self._update_CMD(command)
+
+    def _update_gain(self) -> None:
+        """Handle gain update button press."""
+
+        # Get and validate gain
+        gain_str = self.ui_manager.get_gain_value()
+        is_valid, error_message, gain_value = self.ui_manager.validate_value(gain_str, 0, 22)
+        
+        if not is_valid:
+            self.console_manager.append_message(f"❌ {error_message}", "system")
+            return
+        
+        # Send frequency update command
+        command = f"command update gain {gain_value}"
+        self._update_CMD(command)
+
+    def _update_output(self, button_index: int) -> None:
+        """Handle output button press for any of the 8 output buttons."""
+        # Toggle the state for this button (convert to 0-based index)
+        array_index = button_index - 1
+        self.output_states[array_index] = not self.output_states[array_index]
+        
+        # 1 for ON, 0 for OFF
+        _state = "1" if self.output_states[array_index] else "0"
+
+        # Change color of the button
+        button = self.ui_manager.get_output_button(button_index)
+        if button:
+            if self.output_states[array_index]:
+                button.setStyleSheet("background-color: #3df546; color: white;")  # Green for ON
+            else:
+                button.setStyleSheet("background-color: #f53d3d; color: white;")  # Red for OFF
+
+        # Send command
+        command = f"command set output {button_index} {_state}"
+        self._update_CMD(command)
+
+    def _update_CMD(self, command) -> None:
+        """Handle frequency update button press."""
+        # Check if serial is connected
+        if not self.is_connected:
+            self.console_manager.append_message("⚠️ Not connected to any device.", "system")
+            return
+        
+        if self.serial_port.send_command(command):
+            self.console_manager.append_message(f"✅ Update sent: >> {command} <<", "system")
+        else:
+            self.console_manager.append_message("❌ Failed to send frequency update command", "system")
+    
+    def get_output_states(self) -> list:
+        """Get current states of all output buttons."""
+        return self.output_states.copy()
+    
+    def reset_all_outputs(self) -> None:
+        """Reset all outputs to OFF state."""
+        for i in range(1, 9):
+            if self.output_states[i-1]:  # Only reset if currently ON
+                self._update_output(i)
+    
 
 
 def main():
