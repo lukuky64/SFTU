@@ -55,6 +55,7 @@ void Control::setup() {
   bool loraSuccess =
       m_LoRaCom->begin<SX1276>(SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF,
                                RF_DIO, RF_RST, 915.0f, 20);
+  m_LoRaCom->setRadioType(RADIO_SX127X);
 
   if (!loraSuccess) {
     ESP_LOGE(TAG,

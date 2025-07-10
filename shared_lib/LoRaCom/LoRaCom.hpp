@@ -7,6 +7,8 @@
 
 #include "esp_log.h"
 
+enum RadioType { RADIO_UNKNOWN, RADIO_SX127X, RADIO_SX126X };
+
 class LoRaCom {
  public:
   LoRaCom();
@@ -20,7 +22,7 @@ class LoRaCom {
     radio = new RadioType((BUSY == -1) ? new Module(csPin, intPin, RST)
                                        : new Module(csPin, intPin, RST, BUSY));
 
-    int state = static_cast<RadioType *>(radio)->begin(freqMHz, 500, 7, 5, 0x34,
+    int state = static_cast<RadioType *>(radio)->begin(freqMHz, 250, 9, 7, 0x34,
                                                        power, 20);
 
     radio->setPacketReceivedAction(RxTxCallback);
@@ -37,6 +39,8 @@ class LoRaCom {
     }
   }
 
+  void setRadioType(RadioType type) { radioType = type; }
+
   void sendMessage(const char *msg);  // overloaded function
   bool getMessage(char *buffer, size_t len);
   bool checkRx();
@@ -46,13 +50,14 @@ class LoRaCom {
   bool setFrequency(float freqMHz);
 
   // not supported for the physical layer
-  bool setSpreadingFactor(uint8_t spreadingFactor) { return false; }
-  bool setBandwidth(float bandwidth) { return false; }
+  bool setSpreadingFactor(uint8_t spreadingFactor);
+  bool setBandwidth(float bandwidth);
 
   bool checkTxMode();
 
  private:
   PhysicalLayer *radio;
+  RadioType radioType = RADIO_UNKNOWN;
   inline static LoRaCom *instance = nullptr;
 
   bool radioInitialised = false;

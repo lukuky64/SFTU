@@ -89,3 +89,49 @@ bool LoRaCom::setFrequency(float freqMHz) {
     return false;
   }
 }
+
+bool LoRaCom::setSpreadingFactor(uint8_t spreadingFactor) {
+  int state = RADIOLIB_ERR_UNKNOWN;
+  if (!radio) {
+    ESP_LOGE(TAG, "Radio pointer is null!");
+    return false;
+  }
+  if (radioType == RADIO_SX127X) {
+    state = static_cast<SX1278 *>(radio)->setSpreadingFactor(spreadingFactor);
+  } else if (radioType == RADIO_SX126X) {
+    state = static_cast<SX126x *>(radio)->setSpreadingFactor(spreadingFactor);
+  } else {
+    ESP_LOGE(TAG, "Unknown or unsupported radio type!");
+    return false;
+  }
+  if (state == RADIOLIB_ERR_NONE) {
+    ESP_LOGI(TAG, "Spreading factor set to %d", spreadingFactor);
+    return true;
+  } else {
+    ESP_LOGE(TAG, "Failed to set spreading factor with code: %d", state);
+    return false;
+  }
+}
+
+bool LoRaCom::setBandwidth(float bandwidth) {
+  int state = RADIOLIB_ERR_UNKNOWN;
+  if (!radio) {
+    ESP_LOGE(TAG, "Radio pointer is null!");
+    return false;
+  }
+  if (radioType == RADIO_SX127X) {
+    state = static_cast<SX1278 *>(radio)->setBandwidth(bandwidth);
+  } else if (radioType == RADIO_SX126X) {
+    state = static_cast<SX126x *>(radio)->setBandwidth(bandwidth);
+  } else {
+    ESP_LOGE(TAG, "Unknown or unsupported radio type!");
+    return false;
+  }
+  if (state == RADIOLIB_ERR_NONE) {
+    ESP_LOGI(TAG, "Bandwidth set to %.2f kHz", bandwidth);
+    return true;
+  } else {
+    ESP_LOGE(TAG, "Failed to set bandwidth with code: %d", state);
+    return false;
+  }
+}
