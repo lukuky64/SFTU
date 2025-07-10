@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.tex": "latex",
         "cstdint": "cpp",
         "sstream": "cpp",
         "array": "cpp",
@@ -17,6 +18,7 @@
         "chrono": "cpp",
         "typeinfo": "cpp",
         "type_traits": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "memory": "cpp"
     }
 }
