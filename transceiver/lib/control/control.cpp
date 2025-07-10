@@ -12,10 +12,10 @@ Control::Control() {
 void Control::setup() {
   m_serialCom->init(115200);  // Initialize serial communication
 
+  m_LoRaCom->setRadioType(RADIO_SX126X);
   bool loraSuccess =
       m_LoRaCom->begin<SX1262>(SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF,
-                               RF_DIO, RF_RST, 915.0f, 22, RF_BUSY);
-  m_LoRaCom->setRadioType(RADIO_SX126X);
+                               RF_DIO, RF_RST, 22, RF_BUSY);
 
   if (!loraSuccess) {
     ESP_LOGE(TAG,

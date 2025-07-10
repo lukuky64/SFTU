@@ -29,13 +29,13 @@ Control::Control() {
 
 void Control::setup() {
 #ifdef SFTU
-  m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL);
-  m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL);
-  m_SPI_BUS->begin(SPI_CLK_SD, SPI_MISO_SD, SPI_MOSI_SD);
-
   m_I2C_BUS->setClock(400'000);
   m_ANALOG_I2C_BUS->setClock(400'000);
   m_SPI_BUS->setFrequency(40'000'000);
+
+  m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL);
+  m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL);
+  m_SPI_BUS->begin(SPI_CLK_SD, SPI_MISO_SD, SPI_MOSI_SD);
 
   m_actuation->init();
   m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
@@ -52,10 +52,9 @@ void Control::setup() {
 
   m_serialCom->init(115200);  // Initialize serial communication
 
-  bool loraSuccess =
-      m_LoRaCom->begin<SX1276>(SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF,
-                               RF_DIO, RF_RST, 915.0f, 20);
   m_LoRaCom->setRadioType(RADIO_SX127X);
+  bool loraSuccess = m_LoRaCom->begin<SX1276>(
+      SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF, RF_DIO, RF_RST, 20);
 
   if (!loraSuccess) {
     ESP_LOGE(TAG,
