@@ -101,27 +101,34 @@ class SerialPort(QObject):
         """Read data from the serial port."""
         if not self.is_connected:
             return
-        
+
         try:
             # Read available data
             raw_data = self.serial_connection.read(self.serial_connection.in_waiting or 1)
             if not raw_data:
                 return
-            
+
             # Decode and add to buffer
             decoded_data = raw_data.decode(errors='replace')
             self.read_buffer += decoded_data
-            
+
             # Process complete lines
             while '\n' in self.read_buffer:
                 line, self.read_buffer = self.read_buffer.split('\n', 1)
                 line = line.strip()
                 if line:  # Only emit non-empty lines
                     self.data_received.emit(line)
-                    
+
         except Exception as e:
             self.error_occurred.emit(f"Serial read error: {e}")
-            self.read_timer.stop()
+            # Attempt to disable update buttons in the UI if possible
+            try:
+                if hasattr(self.parent(), 'ui_manager'):
+                    self.parent().ui_manager.set_update_buttons_enabled(False)
+            except Exception:
+                pass
+            self.disconnect()
+            
 
 
 class PortDiscovery:

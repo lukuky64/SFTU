@@ -61,8 +61,9 @@ class ConsoleManager:
         """
         color = self.MESSAGE_COLORS.get(msg_type, self.MESSAGE_COLORS["normal"])
         safe_text = html.escape(text)
+        # Use a font family that is more likely to exist (Menlo, Monaco, monospace)
         html_line = (
-            f'<span style="color:{color}; font-family:Menlo, Courier, monospace;">'
+            f'<span style="color:{color}; font-family:Menlo, Monaco, monospace;">'
             f'{safe_text}</span><br>'
         )
         self.console_buffer.append(html_line)
