@@ -1,0 +1,1 @@
+cd /Users/lucas/Documents/GitHub/SFTU/transceiver/spectral_scan && python3 SpectrumScan.py /dev/tty.usbmodem101 --len 1000

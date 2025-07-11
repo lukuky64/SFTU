@@ -16,8 +16,7 @@ Control::Control() {
   m_battMonitor = new BattMonitor(VOLTAGE_SENSE, 4.032f);
 
 #ifdef SFTU
-  m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L,
-                              PCA6408A_SLAVE_ADDRESS_H, *m_I2C_BUS);
+  m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L, PCA6408A_SLAVE_ADDRESS_H, *m_I2C_BUS);
   m_commander = new Commander(m_serialCom, m_LoRaCom, m_actuation, m_adcADS);
 
   m_display = new Display();
@@ -40,7 +39,7 @@ void Control::setup() {
   m_actuation->init();
   m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
   m_adcADS->init(ADS0_ADDR);                        // Use ADS0 address
-  m_battMonitor->init();  // Initialize battery monitor
+  m_battMonitor->init();                            // Initialize battery monitor
 
   m_display->init(*m_I2C_BUS);  // Initialize the display
 
@@ -53,12 +52,10 @@ void Control::setup() {
   m_serialCom->init(115200);  // Initialize serial communication
 
   m_LoRaCom->setRadioType(RADIO_SX127X);
-  bool loraSuccess = m_LoRaCom->begin<SX1276>(
-      SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF, RF_DIO, RF_RST, 20);
+  bool loraSuccess = m_LoRaCom->begin<SX1276>(SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF, RF_DIO, RF_RST, 20);
 
   if (!loraSuccess) {
-    ESP_LOGE(TAG,
-             "LoRa initialization FAILED! Check your hardware connections.");
+    ESP_LOGE(TAG, "LoRa initialization FAILED! Check your hardware connections.");
     ESP_LOGE(TAG,
              "Pin assignments: CLK=%d, MISO=%d, MOSI=%d, CS=%d, INT=%d, "
              "RST=%d",
@@ -109,29 +106,19 @@ void Control::begin() {
 
   // Create new tasks for serial data handling, LoRa data handling, and status
   // Higher priority = higher number, priorities should be 1-3 for user tasks
-  xTaskCreate(
-      [](void *param) { static_cast<Control *>(param)->serialDataTask(); },
-      "SerialDataTask", 4096, this, 2, &m_taskHandles.SerialTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->serialDataTask(); }, "SerialDataTask", 4096, this, 2, &m_taskHandles.SerialTaskHandle);
 
-  xTaskCreate(
-      [](void *param) { static_cast<Control *>(param)->loRaDataTask(); },
-      "LoRaDataTask", 4096, this, 2, &m_taskHandles.LoRaTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 4096, this, 2, &m_taskHandles.LoRaTaskHandle);
 
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); },
-              "StatusTask", 4096, this, 1, &m_taskHandles.StatusTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 4096, this, 1, &m_taskHandles.StatusTaskHandle);
 
-  xTaskCreate(
-      [](void *param) { static_cast<Control *>(param)->heartBeatTask(); },
-      "HeartBeatTask", 4096, this, 1, &m_taskHandles.heartBeatTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->heartBeatTask(); }, "HeartBeatTask", 4096, this, 1, &m_taskHandles.heartBeatTaskHandle);
 
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->analogTask(); },
-              "AnalogTask", 8192, this, 3, &m_taskHandles.analogTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->analogTask(); }, "AnalogTask", 8192, this, 3, &m_taskHandles.analogTaskHandle);
 
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->sdTask(); },
-              "sdTask", 8192, this, 3, &m_taskHandles.sdTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->sdTask(); }, "sdTask", 8192, this, 3, &m_taskHandles.sdTaskHandle);
 
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->displayTask(); },
-              "sdTask", 4096, this, 1, &m_taskHandles.displayTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->displayTask(); }, "sdTask", 4096, this, 1, &m_taskHandles.displayTaskHandle);
 
   ESP_LOGI(TAG, "Control begun!\n");
 
@@ -165,8 +152,7 @@ void Control::displayTask() {
 }
 
 void Control::analogTask() {
-  m_adcADS->setInputConfig(GAIN_FOUR, RATE_ADS1115_860SPS,
-                           ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
+  m_adcADS->setInputConfig(GAIN_FOUR, RATE_ADS1115_860SPS, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
   m_adcADS->setDataRate(adcSPS);
   m_adcADS->startContinuous();
 
@@ -232,8 +218,7 @@ void Control::sdTask() {
 
     // Write if block is full or timeout has passed and we have data
     TickType_t now = xTaskGetTickCount();
-    if (count >= blockSize ||
-        (count > 0 && (now - lastBlockTime) >= blockTimeout)) {
+    if (count >= blockSize || (count > 0 && (now - lastBlockTime) >= blockTimeout)) {
       // Write both value and timestamp to SD (update SD_Talker as needed)
       bool blockWritten = m_sdTalker->writeBlockToSD(block, count);
       if (blockWritten) {
@@ -300,10 +285,7 @@ void Control::statusTask() {
     m_batteryVoltage = m_battMonitor->getScaledVoltage(/*num_readings*/ 20);
 
     int32_t rssi = m_LoRaCom->getRssi();
-    String msg = String("status ") + "ID:" + deviceID +
-                 " RSSI:" + String(rssi) +
-                 " battVoltage:" + String(m_batteryVoltage) +
-                 " mode:" + m_mode + " status:" + m_status;
+    String msg = String("status ") + "ID:" + deviceID + " RSSI:" + String(rssi) + " battVoltage:" + String(m_batteryVoltage) + " mode:" + m_mode + " status:" + m_status;
 
     // Send over serial first (this should be fast)
     m_serialCom->sendData(((msg + "\n").c_str()));
@@ -312,7 +294,7 @@ void Control::statusTask() {
     ESP_LOGD(TAG, "Starting LoRa transmission...");
 
     while (m_LoRaCom->checkRx()) vTaskDelay(pdMS_TO_TICKS(1));
-    m_LoRaCom->sendMessage(msg.c_str());
+    m_LoRaCom->sendMessage(msg.c_str(), 2000);
     vTaskDelay(pdMS_TO_TICKS(status_Interval));
   }
 }
@@ -329,7 +311,7 @@ void Control::interpretMessage(const char *buffer, bool relayMsgLoRa) {
     if (relayMsgLoRa) {
       // send to other devices to sync parameters
       while (m_LoRaCom->checkRx()) vTaskDelay(pdMS_TO_TICKS(1));
-      m_LoRaCom->sendMessage(buffer);
+      m_LoRaCom->sendMessage(buffer, 2000);
     }
     // should probably wait for a success reply before changing THIS device
     ESP_LOGD(TAG, "Processing command: %s", buffer);
@@ -387,10 +369,8 @@ void Control::checkTaskStack() {
   // print how much stack is left on each task
   for (const auto &task : m_taskHandleMap) {
     if (task.handle != nullptr && *task.handle != nullptr) {
-      UBaseType_t stackHighWaterMark =
-          uxTaskGetStackHighWaterMark(*task.handle);
-      ESP_LOGI(TAG, "%s: Stack high water mark: %u", task.name.c_str(),
-               stackHighWaterMark);
+      UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(*task.handle);
+      ESP_LOGI(TAG, "%s: Stack high water mark: %u", task.name.c_str(), stackHighWaterMark);
     } else {
       ESP_LOGI(TAG, "%s: Task handle is null", task.name.c_str());
     }

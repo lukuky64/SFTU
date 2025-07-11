@@ -1,10 +1,9 @@
 #include "control.hpp"
 
 Control::Control() {
-  m_serialCom = new SerialCom();  // Initialize SerialCom instance
-  m_LoRaCom = new LoRaCom();      // Initialize LoRaCom instance
-  m_commander =
-      new Commander(m_serialCom, m_LoRaCom);  // Initialize Commander instance
+  m_serialCom = new SerialCom();                        // Initialize SerialCom instance
+  m_LoRaCom = new LoRaCom();                            // Initialize LoRaCom instance
+  m_commander = new Commander(m_serialCom, m_LoRaCom);  // Initialize Commander instance
 
   m_saveFlash = new SaveFlash(m_serialCom);  // Initialize SaveFlash instance
 }
@@ -13,18 +12,14 @@ void Control::setup() {
   m_serialCom->init(115200);  // Initialize serial communication
 
   m_LoRaCom->setRadioType(RADIO_SX126X);
-  bool loraSuccess =
-      m_LoRaCom->begin<SX1262>(SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF,
-                               RF_DIO, RF_RST, 22, RF_BUSY);
+  bool loraSuccess = m_LoRaCom->begin<SX1262>(SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF, RF_DIO, RF_RST, 22, RF_BUSY);
 
   if (!loraSuccess) {
-    ESP_LOGE(TAG,
-             "LoRa initialization FAILED! Check your hardware connections.");
+    ESP_LOGE(TAG, "LoRa initialization FAILED! Check your hardware connections.");
     ESP_LOGE(TAG,
              "Pin assignments: CLK=%d, MISO=%d, MOSI=%d, CS=%d, INT=%d, "
              "RST=%d, BUSY=%d",
-             SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF, RF_DIO, RF_RST,
-             RF_BUSY);
+             SPI_CLK_RF, SPI_MISO_RF, SPI_MOSI_RF, SPI_CS_RF, RF_DIO, RF_RST, RF_BUSY);
   } else {
     ESP_LOGI(TAG, "LoRa initialized successfully!");
   }
@@ -53,20 +48,13 @@ void Control::begin() {
 
   // Create new tasks for serial data handling, LoRa data handling, and status
   // Higher priority = higher number, priorities should be 1-3 for user tasks
-  xTaskCreate(
-      [](void *param) { static_cast<Control *>(param)->serialDataTask(); },
-      "SerialDataTask", 8192, this, 2, &SerialTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->serialDataTask(); }, "SerialDataTask", 8192, this, 2, &SerialTaskHandle);
 
-  xTaskCreate(
-      [](void *param) { static_cast<Control *>(param)->loRaDataTask(); },
-      "LoRaDataTask", 8192, this, 2, &LoRaTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 2, &LoRaTaskHandle);
 
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); },
-              "StatusTask", 8192, this, 1, &StatusTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 8192, this, 1, &StatusTaskHandle);
 
-  xTaskCreate(
-      [](void *param) { static_cast<Control *>(param)->heartBeatTask(); },
-      "HeartBeatTask", 2048, this, 1, &heartBeatTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->heartBeatTask(); }, "HeartBeatTask", 2048, this, 1, &heartBeatTaskHandle);
 
   ESP_LOGI(TAG, "Control begun!\n");
 
@@ -132,19 +120,13 @@ void Control::statusTask() {
     // m_LoRaCom->processOperations();
 
     int32_t rssi = m_LoRaCom->getRssi();
-    String msg = String("status ") + "ID:" + deviceID +
-                 " RSSI:" + String(rssi) +
-                 " batteryLevel:" + String(m_batteryLevel) + " mode:" + m_mode +
-                 " status:" + m_status;
+    String msg = String("status ") + "ID:" + deviceID + " RSSI:" + String(rssi) + " batteryLevel:" + String(m_batteryLevel) + " mode:" + m_mode + " status:" + m_status;
 
     // Send over serial first (this should be fast)
     m_serialCom->sendData(((msg + "\n").c_str()));
 
-    // Try LoRa transmission with timeout protection
     ESP_LOGD(TAG, "Starting LoRa transmission...");
-    while (m_LoRaCom->checkRx()) vTaskDelay(pdMS_TO_TICKS(1));
-    m_LoRaCom->sendMessage(msg.c_str());
-
+    m_LoRaCom->sendMessage(msg.c_str(), 2000);
     vTaskDelay(pdMS_TO_TICKS(status_Interval));
   }
 }
@@ -160,12 +142,7 @@ void Control::interpretMessage(const char *buffer, bool relayMsgLoRa) {
   if (c_cmp(token, "command")) {
     if (relayMsgLoRa) {
       // send to other devices to sync parameters
-      while (m_LoRaCom->checkRx()) vTaskDelay(pdMS_TO_TICKS(1));
-      m_LoRaCom->sendMessage(buffer);
-      while (m_LoRaCom->checkTxMode()) {
-        // wait for LoRa to finish transmitting
-        vTaskDelay(pdMS_TO_TICKS(10));  // Wait for LoRa transmission
-      }
+      m_LoRaCom->sendMessage(buffer, 2000);
     }
     // should probably wait for a success reply before changing THIS device
     ESP_LOGD(TAG, "Processing command: %s", buffer);

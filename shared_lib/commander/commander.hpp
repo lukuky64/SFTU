@@ -18,8 +18,7 @@
 class Commander {
  public:
 #ifdef SFTU
-  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation,
-            adcADS *adcADS);
+  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS);
 #else
   Commander(SerialCom *serialCom, LoRaCom *loraCom);
 #endif
@@ -48,8 +47,8 @@ class Commander {
   void handle_command_help();  // Command handler for "help"
   void handle_update();        // Command handler for "update" parameters
   void handle_set();           // Command handler for "set" parameters
-  void handle_mode();  // Command handler for "mode" (eg: transmit, receive,
-                       // transcieve, spectrum scan, etc")
+  void handle_mode();          // Command handler for "mode" (eg: transmit, receive,
+                               // transcieve, spectrum scan, etc")
 
   // ----- Update Handlers -----
   void handle_update_help();             // Command handler for "help"
@@ -57,7 +56,7 @@ class Commander {
   void handle_update_freqMhz();          // Command handler for "update freqMhz"
   void handle_update_spreadingFactor();  // Command handler for "update
                                          // spreading factor"
-  void handle_update_bandwidthKHz();  // Command handler for "update bandwidth"
+  void handle_update_bandwidthKHz();     // Command handler for "update bandwidth"
 
   void handle_calibrateCell();  // Command handler for "calibrateCell"
   // void handle_tareCell();       // Command handler for "tareCell"
@@ -67,37 +66,27 @@ class Commander {
 
   void handle_help(const HandlerMap *handler);
 
-  static constexpr const HandlerMap command_handler[5] = {
-      {"help", &Commander::handle_command_help},
-      {"update", &Commander::handle_update},
-      {"set", &Commander::handle_set},
-      {"mode", &Commander::handle_mode},
-      {nullptr, nullptr}};
+  static constexpr const HandlerMap command_handler[5] = {{"help", &Commander::handle_command_help}, {"update", &Commander::handle_update}, {"set", &Commander::handle_set}, {"mode", &Commander::handle_mode}, {nullptr, nullptr}};
 
-  static constexpr const HandlerMap update_handler[7] = {
-      {"help", &Commander::handle_update_help},
-      {"gain", &Commander::handle_update_gain},
-      {"freqMhz", &Commander::handle_update_freqMhz},
-      {"sf", &Commander::handle_update_spreadingFactor},
-      {"bwKHz", &Commander::handle_update_bandwidthKHz},
+  static constexpr const HandlerMap update_handler[7] = {{"help", &Commander::handle_update_help},
+                                                         {"gain", &Commander::handle_update_gain},
+                                                         {"freqMHz", &Commander::handle_update_freqMhz},
+                                                         {"sf", &Commander::handle_update_spreadingFactor},
+                                                         {"bwKHz", &Commander::handle_update_bandwidthKHz},
 
-      {"calibrateCell", &Commander::handle_calibrateCell},
-      // {"tareCell", &Commander::handle_tareCell},
-      {nullptr, nullptr}};
+                                                         {"calibrateCell", &Commander::handle_calibrateCell},
+                                                         // {"tareCell", &Commander::handle_tareCell},
+                                                         {nullptr, nullptr}};
 
-  static constexpr const HandlerMap set_handler[3] = {
-      {"help", &Commander::handle_set_help},
-      {"output", &Commander::handle_set_OUTPUT},
-      {nullptr, nullptr}};
+  static constexpr const HandlerMap set_handler[3] = {{"help", &Commander::handle_set_help}, {"output", &Commander::handle_set_OUTPUT}, {nullptr, nullptr}};
 
   void runMappedCommand(char *command, const HandlerMap *handler);
 
   static constexpr const char *TAG = "Commander";
 
  public:
-  void checkCommand(const HandlerMap *handler =
-                        command_handler);  // Check the command and run
-                                           // the appropriate handler
+  void checkCommand(const HandlerMap *handler = command_handler);  // Check the command and run
+                                                                   // the appropriate handler
 
   void setCommand(const char *buffer);
 

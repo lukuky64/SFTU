@@ -19,8 +19,8 @@ class LoRaCom {
 
     radio = new RadioType((BUSY == -1) ? new Module(csPin, intPin, RST) : new Module(csPin, intPin, RST, BUSY));
 
-    float freqMHz = 915.0f;        // Default frequency for LoRa <137.0 - 960.0> MHz
-    float bw = 62.5f;              // Default bandwidth for LoRa <7.8 - 510.0> kHz
+    float freqMHz = 910.0f;        // Default frequency for LoRa <137.0 - 960.0> MHz
+    float bw = 125.0f;             // Default bandwidth for LoRa <7.8 - 510.0> kHz
     int8_t sf = 9;                 // Spreading factor <5 - 12>
     uint8_t cr = 5;                // Coding rate denominator (4/cr) <5 - 8>
     uint8_t syncWord = 0x12;       // sync word for private LoRa
@@ -55,7 +55,7 @@ class LoRaCom {
 
   void setRadioType(RadioType type) { radioType = type; }
 
-  void sendMessage(const char *msg);  // overloaded function
+  void sendMessage(const char *msg, uint32_t timeout_ms);  // overloaded function
   bool getMessage(char *buffer, size_t len);
   bool checkRx();
   int32_t getRssi();

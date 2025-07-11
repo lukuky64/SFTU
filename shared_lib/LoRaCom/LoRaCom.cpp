@@ -23,24 +23,32 @@ void LoRaCom::RxTxCallback(void) {
       } else {
         ESP_LOGE(TAG, "Transmission failed, code: %d", state);
       }
-
-      return;
+    } else {
+      instance->RxFlag = true;
     }
-    instance->RxFlag = true;
   }
 }
 
-void LoRaCom::sendMessage(const char *msg) {
-  if (!RxFlag && radioInitialised) {
-    if (msg[0] != '\0') {
-      int state = radio->startTransmit(msg);
-      instance->TxMode = true;
-      if (state == RADIOLIB_ERR_NONE) {
-        ESP_LOGI(TAG, "Transmitting: <%s>", msg);
-      } else {
-        ESP_LOGE(TAG, "Failed to begin transmission, code: %d", state);
-      }
+void LoRaCom::sendMessage(const char *msg, uint32_t timeout_ms) {
+  if (!radioInitialised || (msg[0] == '\0')) {
+    return;
+  }
+  uint32_t startTick = xTaskGetTickCount();
+  while (RxFlag) {
+    vTaskDelay(pdMS_TO_TICKS(1));
+    if ((xTaskGetTickCount() - startTick) > pdMS_TO_TICKS(timeout_ms)) {
+      ESP_LOGE(TAG, "sendMessage timeout waiting for RxFlag to clear");
+      return;
     }
+  }
+
+  int state = radio->startTransmit(msg);
+  if (state == RADIOLIB_ERR_NONE) {
+    instance->TxMode = true;
+    ESP_LOGI(TAG, "Transmitting: <%s>", msg);
+    while (TxMode) vTaskDelay(pdMS_TO_TICKS(1));  // Wait for transmission to finish
+  } else {
+    ESP_LOGE(TAG, "Failed to begin transmission, code: %d", state);
   }
 }
 
@@ -68,7 +76,16 @@ int32_t LoRaCom::getRssi() {
 
 bool LoRaCom::setOutGain(int8_t gain) {
   // value should be bewteen -9 and 22 dBm
-  int state = radio->setOutputPower(gain);
+
+  int state = RADIOLIB_ERR_NONE;
+
+  if (radioType == RADIO_SX126X) {
+    state |= static_cast<SX1262 *>(radio)->setOutputPower(gain);
+  } else if (radioType == RADIO_SX127X) {
+    state |= static_cast<SX1278 *>(radio)->setOutputPower(gain);
+  }
+
+  // int state = radio->setOutputPower(gain);
   if (state == RADIOLIB_ERR_NONE) {
     ESP_LOGI(TAG, "Gain set to %d", gain);
     return true;
