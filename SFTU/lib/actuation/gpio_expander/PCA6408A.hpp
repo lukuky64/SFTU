@@ -88,19 +88,20 @@
 
 // Array of PCA6408A pin constants (indexed from 1-8)
 static const uint8_t PCA6408A_outputPins[] = {
-    0,             // Index 0 (unused)
-    PCA6408A_IO0,  // Index 1 -> Output 1
-    PCA6408A_IO1,  // Index 2 -> Output 2
-    PCA6408A_IO2,  // Index 3 -> Output 3
-    PCA6408A_IO3,  // Index 4 -> Output 4
-    PCA6408A_IO4,  // Index 5 -> Output 5
-    PCA6408A_IO5,  // Index 6 -> Output 6
-    PCA6408A_IO6,  // Index 7 -> Output 7
-    PCA6408A_IO7   // Index 8 -> Output 8
+    0,            // Index 0 (unused)
+    PCA6408A_IO0, // Index 1 -> Output 1
+    PCA6408A_IO1, // Index 2 -> Output 2
+    PCA6408A_IO2, // Index 3 -> Output 3
+    PCA6408A_IO3, // Index 4 -> Output 4
+    PCA6408A_IO4, // Index 5 -> Output 5
+    PCA6408A_IO5, // Index 6 -> Output 6
+    PCA6408A_IO6, // Index 7 -> Output 7
+    PCA6408A_IO7  // Index 8 -> Output 8
 };
 
-class PCA6408A {
- public:
+class PCA6408A
+{
+public:
   PCA6408A(uint8_t addr, TwoWire &wire);
   void Initialization(uint8_t config);
   void setDigital(uint8_t port, uint8_t output);
@@ -109,9 +110,9 @@ class PCA6408A {
   uint8_t getDigital(uint8_t port);
   void setMode(uint8_t port, bool input_mode);
 
- private:
+private:
   uint8_t _i2caddr;
-  TwoWire *_I2C_BUS;  // Pointer to the I2C bus instance
+  TwoWire *_I2C_BUS; // Pointer to the I2C bus instance
   uint8_t _config;
 };
 

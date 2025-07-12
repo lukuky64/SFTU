@@ -39,13 +39,14 @@
 //   float batteryLevel;  // Battery level in volts
 // };
 
-class Control {
- public:
+class Control
+{
+public:
   Control();
   void setup();
   void begin();
 
- private:
+private:
   SerialCom *m_serialCom;
   LoRaCom *m_LoRaCom;
   Commander *m_commander;
@@ -53,7 +54,7 @@ class Control {
 
   unsigned long serial_Interval = 100;
   unsigned long lora_Interval = 100;
-  unsigned long status_Interval = 5'100;  // slightly out of sync with other device
+  unsigned long status_Interval = 5'100; // slightly out of sync with other device
   unsigned long heartBeat_Interval = 250;
 
   static constexpr const char *TAG = "Control";
@@ -71,12 +72,12 @@ class Control {
   void interpretMessage(const char *buffer, bool relayMsgLoRa = true);
   void processData(const char *buffer);
 
-  String deviceID = "transceiver";  // Unique identifier for the device
+  String deviceID = "transceiver"; // Unique identifier for the device
 
   // Mode of operation (transmit, receive, transceive, etc.)
   String m_mode = "transceive";
-  String m_status = "ok";        // Status of the device (e.g., "ok", "error", etc.)
-  float m_batteryLevel = 100.0;  // Battery level as a percentage (0-100)
+  String m_status = "ok";       // Status of the device (e.g., "ok", "error", etc.)
+  float m_batteryLevel = 100.0; // Battery level as a percentage (0-100)
 
   // Data payload;
 };

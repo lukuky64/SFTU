@@ -5,20 +5,22 @@
 #include "Arduino.h"
 #include "esp_log.h"
 
-typedef struct {
+typedef struct
+{
   float value;
   uint32_t timestamp;
 } SampleWithTimestamp;
 
-class SD_Talker {
- public:
+class SD_Talker
+{
+public:
   SD_Talker();
   ~SD_Talker();
 
 #if DUMMY_SD
 
   bool checkStatus() { return true; }
-  bool begin(uint8_t CS, SPICOM& SPI_BUS) { return true; }
+  bool begin(uint8_t CS, SPICOM &SPI_BUS) { return true; }
   bool createFile(String StartMsg, String prefix) { return true; }
   bool writeToBuffer(String dataString) { return true; }
   void flushBuffer();
@@ -26,7 +28,7 @@ class SD_Talker {
   String createUniqueLogFile(String prefix) { return "true"; }
   bool createNestedDirectories(String prefix) { return true; }
   bool checkPresence() { return true; }
-  bool writeBlockToSD(const float* block, size_t count) { return true; }
+  bool writeBlockToSD(const float *block, size_t count) { return true; }
 
 #else
   bool checkStatus();
@@ -45,7 +47,7 @@ class SD_Talker {
   bool writeBlockToSD(const SampleWithTimestamp *block, size_t count);
   bool startNewLog(String filePrefix);
 
- private:
+private:
   File dataFile;
   String fileName;
   String buffer;

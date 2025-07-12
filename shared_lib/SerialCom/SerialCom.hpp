@@ -6,8 +6,9 @@
 
 #define COMM_INTERFACE Serial
 
-class SerialCom {
- public:
+class SerialCom
+{
+public:
   SerialCom();
 
   void init(unsigned long baud = 115200);
@@ -16,7 +17,7 @@ class SerialCom {
 
   void sendData(const char *data);
 
- private:
+private:
   unsigned long m_baud;
 
   static constexpr const char *TAG = "SerialCom";

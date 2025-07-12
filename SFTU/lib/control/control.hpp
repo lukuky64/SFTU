@@ -52,13 +52,14 @@
 //   float batteryLevel;  // Battery level in volts
 // };
 
-class Control {
- public:
+class Control
+{
+public:
   Control();
   void setup();
   void begin();
 
- private:
+private:
   TwoWire *m_I2C_BUS;
   TwoWire *m_ANALOG_I2C_BUS;
 
@@ -86,7 +87,8 @@ class Control {
 
   static constexpr const char *TAG = "Control";
 
-  struct handles {
+  struct handles
+  {
     TaskHandle_t SerialTaskHandle = nullptr;
     TaskHandle_t LoRaTaskHandle = nullptr;
     TaskHandle_t StatusTaskHandle = nullptr;
@@ -98,7 +100,8 @@ class Control {
 
   handles m_taskHandles;
 
-  struct HandleMap {
+  struct HandleMap
+  {
     String name;
     TaskHandle_t *handle;
   };
@@ -128,15 +131,15 @@ class Control {
   void processData(const char *buffer);
   void queueSample();
 
-  String deviceID = "SFTU";  // Unique identifier for the device
+  String deviceID = "SFTU"; // Unique identifier for the device
 
   // Mode of operation (transmit, receive, transceive, etc.)
   String m_mode = "transceive";
-  String m_status = "ok";  // Status of the device (e.g., "ok", "error", etc.)
+  String m_status = "ok"; // Status of the device (e.g., "ok", "error", etc.)
   float m_batteryVoltage = 0;
 
   xQueueHandle m_adcQueue;
-  uint16_t adcSPS = 860;  // Set the data rate for the ADC
+  uint16_t adcSPS = 860; // Set the data rate for the ADC
 
   // Data payload;
 };

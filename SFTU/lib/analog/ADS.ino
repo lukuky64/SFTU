@@ -4,7 +4,8 @@
 Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
 // Adafruit_ADS1015 ads;     /* Use this for the 12-bit version */
 
-void setup(void) {
+void setup(void)
+{
   Serial.begin(115200);
   Serial.println("Hello!");
 
@@ -20,7 +21,7 @@ void setup(void) {
   //                                                                ADS1115
   //                                                                -------
   //                                                                -------
-  ads.setGain(GAIN_FOUR);  // 2/3x gain +/- 6.144V  1 bit = 3mV 0.1875mV
+  ads.setGain(GAIN_FOUR); // 2/3x gain +/- 6.144V  1 bit = 3mV 0.1875mV
   // (default) ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit =
   // 2mV      0.125mV ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V 1
   // bit = 1mV      0.0625mV ads.setGain(GAIN_FOUR);       // 4x gain
@@ -32,11 +33,13 @@ void setup(void) {
   uint8_t i2c_addr = 0x48;
 
   // Initialize I2C with specific pins (SDA=1, SCL=0)
-  Wire.setPins(1, 0);  // Set SDA and SCL pins for I2C
+  Wire.setPins(1, 0); // Set SDA and SCL pins for I2C
 
-  if (!ads.begin(i2c_addr, &Wire)) {
+  if (!ads.begin(i2c_addr, &Wire))
+  {
     Serial.println("Failed to initialize ADS.");
-    while (1);
+    while (1)
+      ;
   }
 
   Serial.println("ADS1115 initialized successfully!");
@@ -44,9 +47,11 @@ void setup(void) {
   ads.startADCReading(ADS1X15_REG_CONFIG_MUX_DIFF_0_1, /*continuous=*/false);
 }
 
-void loop(void) {
+void loop(void)
+{
   // If we don't have new data, skip this iteration.
-  if (!ads.conversionComplete()) {
+  if (!ads.conversionComplete())
+  {
     Serial.println("Conversion not complete, skipping iteration.");
     return;
   }

@@ -7,8 +7,9 @@
 #define ADS0_ADDR 0x48
 #define ADS1_ADDR 0x49
 
-class adcADS : public adcBase {
- public:
+class adcADS : public adcBase
+{
+public:
   adcADS(TwoWire &Wire);
 
   // Initialize the ADC
@@ -41,7 +42,7 @@ class adcADS : public adcBase {
 
   float getAverageVolt(uint16_t numSamples);
 
- private:
+private:
   Adafruit_ADS1115 *m_adc;
   int m_mux;
   TwoWire *m_I2C_BUS;
