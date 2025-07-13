@@ -180,6 +180,12 @@ class Ui_main(object):
         self.thatRSSI.setUndoRedoEnabled(False)
         self.thatRSSI.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self.thatRSSI.setReadOnly(True)
+        self.system_msgs = QTextEdit(self.centralwidget)
+        self.system_msgs.setObjectName(u"system_msgs")
+        self.system_msgs.setGeometry(QRect(310, 500, 480, 27))
+        self.system_msgs.setUndoRedoEnabled(False)
+        self.system_msgs.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.system_msgs.setReadOnly(True)
         main.setCentralWidget(self.centralwidget)
         self.statusbar = QStatusBar(main)
         self.statusbar.setObjectName(u"statusbar")
@@ -196,7 +202,7 @@ class Ui_main(object):
 
         self.retranslateUi(main)
 
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(0)  # Open Setup tab by default
 
 
         QMetaObject.connectSlotsByName(main)
@@ -302,6 +308,14 @@ class Ui_main(object):
                         ">Batt: 0.00V</span></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">Mode: None</span></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">Stat: Error</span></p></body></html>", None))
+        self.system_msgs.setHtml(QCoreApplication.translate("main", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"hr { height: 1px; border-width: 0; }\n"
+"li.unchecked::marker { content: \"\\2610\"; }\n"
+"li.checked::marker { content: \"\\2612\"; }\n"
+"</style></head><body style=\" font-family:'.AppleSystemUIFont'; font-size:13pt; font-weight:400; font-style:normal;\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">System messages</p></body></html>", None))
         self.menuFile.setTitle(QCoreApplication.translate("main", u"File", None))
     # retranslateUi
 

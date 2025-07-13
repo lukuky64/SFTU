@@ -12,6 +12,25 @@ from status_parser import StatusManager
 from command_parser import CommandID
 
 
+class SystemMessageManager:
+    """Manages system messages by showing only the latest message."""
+    
+    def __init__(self, text_widget):
+        """Initialize with a QTextEdit widget."""
+        self.text_widget = text_widget
+        
+    def append_message(self, text: str, msg_type: str = "system") -> None:
+        """
+        Display a message, replacing any previous message.
+        
+        Args:
+            text: The message text to display
+            msg_type: Type of message (currently unused, for compatibility)
+        """
+        # Simply set the text, replacing any existing content
+        self.text_widget.setPlainText(text)
+
+
 class SFTUApplication(QMainWindow):
     """Main application window for the SFTU GUI."""
     
@@ -22,6 +41,7 @@ class SFTUApplication(QMainWindow):
         # Initialize managers
         self.ui_manager = UIManager(self)
         self.console_manager = ConsoleManager(self.ui_manager.get_ui().consoleOutput)
+        self.system_msgs = SystemMessageManager(self.ui_manager.get_ui().system_msgs)
         self.serial_port = SerialPort()
         self.status_manager = StatusManager(self._update_device_status_display)
         
@@ -97,12 +117,12 @@ class SFTUApplication(QMainWindow):
         if port_name:
             success = self.serial_port.connect_to_port(port_name)
             if success:
-                self.console_manager.append_message(f"✅ Connected to {port_name}", "system")
+                self.system_msgs.append_message(f"✅ Connected to {port_name}", "system")
     
     def _disconnect(self) -> None:
         """Disconnect from the current serial port."""
         self.serial_port.disconnect()
-        self.console_manager.append_message("🔌 Disconnected", "system")
+        self.system_msgs.append_message("🔌 Disconnected", "system")
     
     def _send_command(self) -> None:
         """Send command from console input to the connected device."""
@@ -115,7 +135,7 @@ class SFTUApplication(QMainWindow):
             self.console_manager.append_message(f">> {command}", "user")
             self.ui_manager.clear_console_input()
         else:
-            self.console_manager.append_message("⚠️ Not connected to any device.", "system")
+            self.system_msgs.append_message("⚠️ Not connected to any device.", "system")
     
     def _handle_incoming_data(self, data: str) -> None:
         """
@@ -127,8 +147,18 @@ class SFTUApplication(QMainWindow):
         # Display in console
         self.console_manager.append_message(f"<< {data}", "incoming")
         
+        # # Debug: Log if this looks like a status message
+        # if "status ID:" in data or "ID:" in data:
+        #     self.console_manager.append_message(f"🔍 Debug: Detected potential status message: {data}", "system")
+        
         # Process status messages
-        self.status_manager.process_status_line(data)
+        status_result = self.status_manager.process_status_line(data)
+        
+        # # Debug: Log status processing result
+        # if status_result:
+        #     self.console_manager.append_message(f"✅ Debug: Status parsed successfully for {status_result.device_id}", "system")
+        # elif "status ID:" in data:
+        #     self.console_manager.append_message(f"❌ Debug: Status parsing failed for: {data}", "system")
     
     def _handle_connection_status(self, connected: bool, message: str) -> None:
         """
@@ -153,7 +183,7 @@ class SFTUApplication(QMainWindow):
         Args:
             error_message: Error description
         """
-        self.console_manager.append_message(f"❌ {error_message}", "system")
+        self.system_msgs.append_message(f"❌ {error_message}", "system")
     
     def _update_device_status_display(self, device_id: str, device_status) -> None:
         """
@@ -163,6 +193,9 @@ class SFTUApplication(QMainWindow):
             device_id: Device identifier
             device_status: DeviceStatus object with device information
         """
+        # Debug: Log status display updates
+        # self.console_manager.append_message(f"📊 Debug: Updating status display for {device_id}: {device_status}", "system")
+        
         self.ui_manager.update_device_status_display(device_id, device_status)
     
     def _update_frequency(self) -> None:
@@ -173,7 +206,7 @@ class SFTUApplication(QMainWindow):
         is_valid, error_message, freq_value = self.ui_manager.validate_value(freq_str, 900.0, 1000.0)
         
         if not is_valid:
-            self.console_manager.append_message(f"❌ {error_message}", "system")
+            self.system_msgs.append_message(f"❌ {error_message}", "system")
             return
         
         command = f"{CommandID.CMD_UPDATE_FREQMHZ} {freq_value}"
@@ -187,7 +220,7 @@ class SFTUApplication(QMainWindow):
         is_valid, error_message, bw_value = self.ui_manager.validate_value(bandw_str, 5.0, 510.0)
         
         if not is_valid:
-            self.console_manager.append_message(f"❌ {error_message}", "system")
+            self.system_msgs.append_message(f"❌ {error_message}", "system")
             return
         
         command = f"{CommandID.CMD_UPDATE_BW} {bw_value}"
@@ -201,7 +234,7 @@ class SFTUApplication(QMainWindow):
         is_valid, error_message, sf_value = self.ui_manager.validate_value(sf_str, 7.0, 12.0)
         
         if not is_valid:
-            self.console_manager.append_message(f"❌ {error_message}", "system")
+            self.system_msgs.append_message(f"❌ {error_message}", "system")
             return
         
         command = f"{CommandID.CMD_UPDATE_SF} {sf_value}"
@@ -215,7 +248,7 @@ class SFTUApplication(QMainWindow):
         is_valid, error_message, gain_value = self.ui_manager.validate_value(gain_str, 0, 22)
         
         if not is_valid:
-            self.console_manager.append_message(f"❌ {error_message}", "system")
+            self.system_msgs.append_message(f"❌ {error_message}", "system")
             return
         
         # Send frequency update command
@@ -247,13 +280,13 @@ class SFTUApplication(QMainWindow):
         """Handle frequency update button press."""
         # Check if serial is connected
         if not self.is_connected:
-            self.console_manager.append_message("⚠️ Not connected to any device.", "system")
+            self.system_msgs.append_message("⚠️ Not connected to any device.", "system")
             return
         
         if self.serial_port.send_command(command):
-            self.console_manager.append_message(f"✅ Update sent: >> {command} <<", "system")
+            self.system_msgs.append_message(f"✅ Update sent: >> {command} <<", "system")
         else:
-            self.console_manager.append_message("❌ Failed to send frequency update command", "system")
+            self.system_msgs.append_message("❌ Failed to send frequency update command", "system")
     
     def get_output_states(self) -> list:
         """Get current states of all output buttons."""

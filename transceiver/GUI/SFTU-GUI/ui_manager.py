@@ -217,28 +217,29 @@ class UIManager:
                 "ID: None\n"
                 "RSSI: -0.00dBm\n"
                 "Batt: 0.00V\n"
-                "Mode: None\n"
                 "Stat: Error"
             )
         else:
             # Format the device status information
             rssi_display = f"{device_status.rssi}dBm" if device_status.rssi != "N/A" else "-0.00dBm"
             batt_display = f"{device_status.battery_voltage}V" if device_status.battery_voltage else "0.00V"
-            mode_display = device_status.mode if device_status.mode else "None"
             status_display = device_status.status if device_status.status else "Error"
             
             status_text = (
                 f"ID: {device_status.device_id}\n"
                 f"RSSI: {rssi_display}\n"
                 f"Batt: {batt_display}\n"
-                f"Mode: {mode_display}\n"
                 f"Stat: {status_display}"
             )
         
+        
         # Update the appropriate display widget
-        if device_id == "SFTU":
+        # Map device IDs to display widgets
+        # Device ID "1" or "SFTU" -> thatRSSI (remote device)
+        # Device ID "2" or "transceiver" -> thisRSSI (local transceiver)
+        if device_id in ["SFTU", "1"]:
             widget = self.ui.thatRSSI
-        elif device_id == "transceiver":
+        elif device_id in ["transceiver", "2"]:
             widget = self.ui.thisRSSI
         else:
             return

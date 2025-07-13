@@ -13,7 +13,6 @@ class DeviceStatus:
     device_id: str
     rssi: str = "N/A"
     battery_voltage: str = ""
-    mode: str = ""
     status: str = ""
 
 
@@ -55,7 +54,6 @@ class StatusParser:
             rssi=parsed_data.get("RSSI", "N/A"),
             battery_voltage=parsed_data.get("battVoltage", 
                                          parsed_data.get("batteryLevel", "")),
-            mode=parsed_data.get("mode", ""),
             status=parsed_data.get("status", "")
         )
     
@@ -89,7 +87,11 @@ class StatusParser:
         Returns:
             True if device is known, False otherwise
         """
-        return device_id in [self.DEVICE_SFTU, self.DEVICE_TRANSCEIVER]
+        known_devices = [
+            self.DEVICE_SFTU, self.DEVICE_TRANSCEIVER,
+            "1", "2"  # Numeric device IDs: 1=SFTU, 2=transceiver
+        ]
+        return device_id in known_devices
 
 
 class StatusManager:
