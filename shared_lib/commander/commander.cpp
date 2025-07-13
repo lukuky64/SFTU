@@ -290,19 +290,19 @@ bool Commander::runCommand(uint8_t commandID, float param)
   switch (commandID)
   {
   case CMD_UPDATE_GAIN:
-    handle_update_gain();
+    handle_update_gain(param);
     break;
   case CMD_UPDATE_FREQMHZ:
-    handle_update_freqMhz();
+    handle_update_freqMhz(param);
     break;
   case CMD_UPDATE_SF:
-    handle_update_spreadingFactor();
+    handle_update_spreadingFactor(param);
     break;
   case CMD_UPDATE_BW:
-    handle_update_bandwidthKHz();
+    handle_update_bandwidthKHz(param);
     break;
   case CMD_CALIBRATE_CELL:
-    handle_calibrateCell();
+    handle_calibrateCell(param);
     break;
   case CMD_SET_OUTPUT:
     handle_set_OUTPUT(param);
@@ -312,6 +312,13 @@ bool Commander::runCommand(uint8_t commandID, float param)
     return false;
   }
   return true;
+}
+
+void Commander::handle_update_gain(float gain)
+{
+  ESP_LOGD(TAG, "Update gain command executing");
+
+  m_loraCom->setOutGain(static_cast<int8_t>(gain)); // Set the gain in LoRaCom
 }
 
 void Commander::handle_update_freqMhz(float freqMhz)
@@ -329,6 +336,7 @@ void Commander::handle_update_bandwidthKHz(float bw)
   m_loraCom->setBandwidth(bw);
 }
 
+#ifdef SFTU
 void Commander::handle_calibrateCell(float massKg)
 {
   float averageVoltage = m_adcADS->getAverageVolt(200);
@@ -347,3 +355,8 @@ void Commander::handle_set_OUTPUT(float indexAndState)
 
   m_actuation->setDigital(PCA6408A_outputPins[outputIndex], (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
 }
+
+#else
+void Commander::handle_calibrateCell(float massKg) { return; }
+void Commander::handle_set_OUTPUT(float indexAndState) { return; }
+#endif

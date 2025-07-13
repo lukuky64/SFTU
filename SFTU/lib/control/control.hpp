@@ -127,7 +127,7 @@ private:
 
   volatile bool adcSampleFlag = false;
 
-  void interpretMessage(const char *buffer, bool relayMsgLoRa);
+  // void interpretMessage(const char *buffer, bool relayMsgLoRa);
   void processData(const char *buffer);
   void queueSample();
 

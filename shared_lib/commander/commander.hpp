@@ -47,6 +47,7 @@ private:
     Handler handler;
   };
 
+  void handle_update_gain(float param);
   void handle_update_freqMhz(float param);
   void handle_update_spreadingFactor(float param);
   void handle_update_bandwidthKHz(float param);

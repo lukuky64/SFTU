@@ -317,8 +317,8 @@ void Control::serialDataTask()
         {
           vTaskDelay(pdMS_TO_TICKS(10));
         }
-        m_commander->runCommand(payload.commandID, payload.param);
 
+        m_commander->runCommand(payload.commandID, payload.param);
         // // Wait for ACK for this sequenceID
         // while (m_LoRaCom->isQueued(msg.sequenceID))
         // {
@@ -371,7 +371,7 @@ void Control::loRaDataTask()
       m_LoRaCom->processSendQueue(); // Process the send queue to send any pending messages
     }
 
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(lora_Interval));
   }
 }
 
