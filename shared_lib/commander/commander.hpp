@@ -6,6 +6,8 @@
 
 #include "LoRaCom.hpp"
 #include "SerialCom.hpp"
+#include "LoraMsg.hpp"
+#include "commandID.hpp"
 
 #ifdef SFTU
 #include "ADCprocessing.hpp"
@@ -44,6 +46,13 @@ private:
     const char *name;
     Handler handler;
   };
+
+  void handle_update_gain(float param);
+  void handle_update_freqMhz(float param);
+  void handle_update_spreadingFactor(float param);
+  void handle_update_bandwidthKHz(float param);
+  void handle_calibrateCell(float param);
+  void handle_set_OUTPUT(float param);
 
   // ----- Command Handlers -----
   void handle_command_help(); // Command handler for "help"
@@ -87,6 +96,8 @@ private:
   static constexpr const char *TAG = "Commander";
 
 public:
+  bool runCommand(uint8_t commandID, float param);
+
   void checkCommand(const HandlerMap *handler = command_handler); // Check the command and run
                                                                   // the appropriate handler
 

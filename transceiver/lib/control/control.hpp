@@ -69,7 +69,7 @@ private:
   void statusTask();
   void heartBeatTask();
 
-  void interpretMessage(const char *buffer, bool relayMsgLoRa = true);
+  // void interpretMessage(const char *buffer, bool relayMsgLoRa = true);
   void processData(const char *buffer);
 
   String deviceID = "transceiver"; // Unique identifier for the device

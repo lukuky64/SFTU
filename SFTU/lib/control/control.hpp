@@ -80,8 +80,8 @@ private:
 
   adcADS *m_adcADS;
 
-  unsigned long serial_Interval = 100;
-  unsigned long lora_Interval = 100;
+  unsigned long serial_Interval = 50;
+  unsigned long lora_Interval = 50;
   unsigned long status_Interval = 5'000;
   unsigned long heartBeat_Interval = 500;
 
@@ -127,7 +127,7 @@ private:
 
   volatile bool adcSampleFlag = false;
 
-  void interpretMessage(const char *buffer, bool relayMsgLoRa);
+  // void interpretMessage(const char *buffer, bool relayMsgLoRa);
   void processData(const char *buffer);
   void queueSample();
 

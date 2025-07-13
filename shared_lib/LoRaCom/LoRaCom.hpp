@@ -8,6 +8,8 @@
 #include "LoRaMsg.hpp"
 #include "esp_log.h"
 
+#define BROADCAST_ID 0xFF
+
 enum RadioType
 {
   RADIO_UNKNOWN,
@@ -72,9 +74,9 @@ public:
 
   void setRadioType(RadioType type) { radioType = type; }
 
-  void sendMessage(const char *msg,
-                   uint32_t timeout_ms); // overloaded function
-  bool getMessage(char *buffer, size_t len);
+  bool sendMessage(const uint8_t *data, size_t len, uint32_t timeout_ms, int queueIndex = -1);
+
+  bool getMessage(LoRaMessage *msg);
   bool checkRx();
   int32_t getRssi();
 
@@ -86,14 +88,24 @@ public:
 
   bool checkTxMode();
 
+  bool enqueueMessage(LoRaMessage &msg, bool requireAck = false);
+  void processSendQueue();
+
+  bool isAcked(uint8_t seqID);
+  bool isFailed(uint8_t seqID);
+  bool isQueued(uint8_t seqID);
+
+  bool stringToCommandPayload(CommandPayload &payload, const char *buffer);
+
 private:
+  int currentTxIndex = -1; // Track which message is being transmitted
   static void RxTxCallback(void);
 
-  // bool enqueueMessage(LoRaMessage &msg);
-  // void processSendQueue();
-  // void handleAck(uint16_t ackSeqID);
-  // void receiveMessage();
-  // void compactSendQueue();
+  void handleAck(uint16_t ackSeqID);
+  bool receiveMessage(LoRaMessage *msg);
+  void compactSendQueue();
+  void sendAck(uint8_t targetID, uint8_t seqID);
+  void moveToDoneQueue(const QueuedMessage &q);
 
   PhysicalLayer *radio;
   RadioType radioType = RADIO_UNKNOWN;
@@ -104,8 +116,12 @@ private:
   volatile bool TxMode = false;
 
   QueuedMessage sendQueue[MAX_QUEUE_SIZE];
-  uint8_t queueCount = 0;
-  uint16_t nextSequenceID = 0;
+  uint8_t sendHead = 0, sendTail = 0, sendCount = 0;
+
+  QueuedMessage doneQueue[MAX_QUEUE_SIZE];
+  uint8_t doneHead = 0, doneTail = 0, doneCount = 0;
+
+  uint8_t nextSequenceID = 0;
 
   static constexpr const char *TAG = "LORA_COMM";
 };

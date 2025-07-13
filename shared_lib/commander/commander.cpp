@@ -282,3 +282,81 @@ void Commander::setCommand(const char *buffer)
     ESP_LOGW(TAG, "Attempted to set a null buffer");
   }
 }
+
+bool Commander::runCommand(uint8_t commandID, float param)
+{
+  ESP_LOGD(TAG, "Running command ID: %d with param: %.2f", commandID, param);
+
+  switch (commandID)
+  {
+  case CMD_UPDATE_GAIN:
+    handle_update_gain(param);
+    break;
+  case CMD_UPDATE_FREQMHZ:
+    handle_update_freqMhz(param);
+    break;
+  case CMD_UPDATE_SF:
+    handle_update_spreadingFactor(param);
+    break;
+  case CMD_UPDATE_BW:
+    handle_update_bandwidthKHz(param);
+    break;
+  case CMD_CALIBRATE_CELL:
+    handle_calibrateCell(param);
+    break;
+  case CMD_SET_OUTPUT:
+    handle_set_OUTPUT(param);
+    break;
+  default:
+    ESP_LOGW(TAG, "Unknown command ID: %d", commandID);
+    return false;
+  }
+  return true;
+}
+
+void Commander::handle_update_gain(float gain)
+{
+  ESP_LOGD(TAG, "Update gain command executing");
+
+  m_loraCom->setOutGain(static_cast<int8_t>(gain)); // Set the gain in LoRaCom
+}
+
+void Commander::handle_update_freqMhz(float freqMhz)
+{
+  m_loraCom->setFrequency(freqMhz);
+}
+
+void Commander::handle_update_spreadingFactor(float sf)
+{
+  m_loraCom->setSpreadingFactor(static_cast<uint8_t>(sf));
+}
+
+void Commander::handle_update_bandwidthKHz(float bw)
+{
+  m_loraCom->setBandwidth(bw);
+}
+
+#ifdef SFTU
+void Commander::handle_calibrateCell(float massKg)
+{
+  float averageVoltage = m_adcADS->getAverageVolt(200);
+  calibrate(massKg, averageVoltage); // param is the object mass
+}
+
+void Commander::handle_set_OUTPUT(float indexAndState)
+{
+  // value before decimal is the index, after decimal is the state
+  int outputIndex = static_cast<int>(indexAndState);
+
+  bool ioState = (indexAndState - (float)outputIndex) > 0.05f;
+
+  ESP_LOGI(TAG, "Setting output %d to %s", outputIndex,
+           ioState ? "ON" : "OFF");
+
+  m_actuation->setDigital(PCA6408A_outputPins[outputIndex], (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
+}
+
+#else
+void Commander::handle_calibrateCell(float massKg) { return; }
+void Commander::handle_set_OUTPUT(float indexAndState) { return; }
+#endif
