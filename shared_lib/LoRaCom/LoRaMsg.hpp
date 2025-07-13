@@ -6,6 +6,7 @@
 
 #define MAX_QUEUE_SIZE 5
 #define ACK_TIMEOUT_MS 500
+#define TX_TIMEOUT_MS 1000
 #define MAX_RETRIES 5
 
 #pragma pack(push, 1)
@@ -13,7 +14,7 @@ struct LoRaMessage
 {
   uint8_t senderID;
   uint8_t receiverID;
-  uint16_t sequenceID;
+  uint8_t sequenceID;
   uint8_t type;
   uint8_t length;
   uint8_t payload[MAX_PAYLOAD_SIZE];
@@ -29,26 +30,28 @@ struct StatusPayload
 struct CommandPayload
 {
   uint8_t commandID;
-  uint8_t param;
+  float param;
 };
 
 struct AckPayload
 {
-  uint16_t acknowledgedSequenceID;
+  uint8_t acknowledgedSequenceID;
 };
 #pragma pack(pop)
 
 struct QueuedMessage
 {
   LoRaMessage msg;
-  uint8_t retryCount;
-  unsigned long lastSendTime;
-  bool acknowledged;
+  uint8_t retryCount = 0;
+  unsigned long lastSendTime = 0;
+  bool acknowledged = false;
+  bool failed = false;
+  bool reqAck = false;
 };
 
 enum messageType
 {
-  TYPE_DATA = 0,
+  TYPE_STATUS = 0,
   TYPE_COMMAND = 1,
   TYPE_ACK = 2,
 };

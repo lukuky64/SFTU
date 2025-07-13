@@ -5,6 +5,7 @@ LoRaCom::LoRaCom()
 {
   instance = this; // Set the static instance pointer
   ESP_LOGI(TAG, "LoRaCom constructor called");
+  currentTxIndex = -1;
 }
 
 // void LoRaCom::setRxFlag() {
@@ -25,6 +26,18 @@ void LoRaCom::RxTxCallback(void)
       if (state == RADIOLIB_ERR_NONE)
       {
         ESP_LOGI(TAG, "Transmission finished");
+        // Mark messages that do not require ACK as acknowledged and move to done queue
+        if (instance->currentTxIndex >= 0 && instance->currentTxIndex < MAX_QUEUE_SIZE)
+        {
+          QueuedMessage &q = instance->sendQueue[instance->currentTxIndex];
+          if (!q.reqAck && !q.acknowledged && !q.failed)
+          {
+            q.acknowledged = true;
+            instance->moveToDoneQueue(q);
+            ESP_LOGI(TAG, "Message (seq %u) marked as acknowledged after transmission (no ACK required).", q.msg.sequenceID);
+          }
+          instance->currentTxIndex = -1;
+        }
       }
       else
       {
@@ -38,35 +51,48 @@ void LoRaCom::RxTxCallback(void)
   }
 }
 
-void LoRaCom::sendMessage(const char *msg, uint32_t timeout_ms)
+bool LoRaCom::sendMessage(const uint8_t *data, size_t len, uint32_t timeout_ms, int queueIndex)
 {
-  if (!radioInitialised || (msg[0] == '\0'))
+  if (!radioInitialised)
   {
-    return;
+    return false;
   }
+
   uint32_t startTick = xTaskGetTickCount();
   while (RxFlag)
   {
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(10));
     if ((xTaskGetTickCount() - startTick) > pdMS_TO_TICKS(timeout_ms))
     {
       ESP_LOGE(TAG, "sendMessage timeout waiting for RxFlag to clear");
-      return;
+      return false;
     }
   }
 
-  int state = radio->startTransmit(msg);
+  // Use the 2-arg version if you're not using the address field
+  int state = radio->startTransmit(data, len);
   if (state == RADIOLIB_ERR_NONE)
   {
     instance->TxMode = true;
-    ESP_LOGI(TAG, "Transmitting: <%s>", msg);
+    instance->currentTxIndex = queueIndex;
+
+    // Optional: cast to LoRaMessage if logging known format
+    const LoRaMessage *msg = reinterpret_cast<const LoRaMessage *>(data);
+    ESP_LOGI(TAG, "Transmitting LoRaMessage: type=%u seq=%u recID=%u len=%u",
+             msg->type, msg->sequenceID, msg->receiverID, msg->length);
+
     while (TxMode)
-      vTaskDelay(pdMS_TO_TICKS(1)); // Wait for transmission to finish
+    {
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
   }
   else
   {
     ESP_LOGE(TAG, "Failed to begin transmission, code: %d", state);
+    return false;
   }
+
+  return true;
 }
 
 bool LoRaCom::checkTxMode()
@@ -74,14 +100,11 @@ bool LoRaCom::checkTxMode()
   return TxMode; // Return the current transmission mode status
 }
 
-bool LoRaCom::getMessage(char *buffer, size_t len)
+bool LoRaCom::getMessage(LoRaMessage *msg)
 {
   if (RxFlag && radioInitialised)
   {
-    int state = radio->readData(reinterpret_cast<uint8_t *>(buffer), len);
-    RxFlag = false;
-    state |= radio->startReceive();
-    return (state == RADIOLIB_ERR_NONE);
+    return receiveMessage(msg);
   }
   return false;
 }
@@ -205,129 +228,219 @@ bool LoRaCom::setBandwidth(float bandwidth)
   }
 }
 
-// bool LoRaCom::enqueueMessage(LoRaMessage &msg)
-// {
-//   if (queueCount >= MAX_QUEUE_SIZE)
-//     return false;
+bool LoRaCom::enqueueMessage(LoRaMessage &msg, bool requireAck)
+{
+  if (sendCount == MAX_QUEUE_SIZE)
+    ESP_LOGE(TAG, "Send queue is full, cannot enqueue message");
+  if (msg.length > MAX_PAYLOAD_SIZE)
+    return false;
+  msg.sequenceID = nextSequenceID++;
+  ESP_LOGD(TAG, "Enqueuing message with sequence ID: %u", msg.sequenceID);
+  sendQueue[sendTail] = {msg, 0, millis(), false, false, requireAck};
+  sendTail = (sendTail + 1) % MAX_QUEUE_SIZE;
+  sendCount++;
+  ESP_LOGD(TAG, "Current send count: %u", sendCount);
+  return true;
+}
 
-//   msg.sequenceID = nextSequenceID++;
-//   sendQueue[queueCount++] = {
-//       .msg = msg,
-//       .retryCount = 0,
-//       .lastSendTime = millis(),
-//       .acknowledged = false};
-//   return true;
-// }
+void LoRaCom::moveToDoneQueue(const QueuedMessage &q)
+{
+  doneQueue[doneTail] = q;
+  doneTail = (doneTail + 1) % MAX_QUEUE_SIZE;
+  if (doneCount < MAX_QUEUE_SIZE)
+    doneCount++;
+  else
+    doneHead = (doneHead + 1) % MAX_QUEUE_SIZE; // Overwrite oldest
 
-// void LoRaCom::processSendQueue()
-// {
-//   for (uint8_t i = 0; i < queueCount; i++)
-//   {
-//     QueuedMessage &q = sendQueue[i];
-//     if (q.acknowledged)
-//       continue;
+  // Invalidate the slot in sendQueue to prevent sequenceID reuse
+  for (uint8_t i = 0; i < MAX_QUEUE_SIZE; i++)
+  {
+    uint8_t idx = (sendHead + i) % MAX_QUEUE_SIZE;
+    if (sendQueue[idx].msg.sequenceID == q.msg.sequenceID)
+    {
+      sendQueue[idx].msg.sequenceID = 0xFF; // Use an invalid value
+      sendQueue[idx].acknowledged = true;
+      sendQueue[idx].failed = false;
+      break;
+    }
+  }
+  compactSendQueue();
+}
 
-//     if (millis() - q.lastSendTime >= ACK_TIMEOUT_MS)
-//     {
-//       if (q.retryCount < MAX_RETRIES)
-//       {
-//         LoRa.beginPacket();
-//         LoRa.write((uint8_t *)&q.msg, sizeof(LoRaMessage));
-//         LoRa.endPacket();
+void LoRaCom::processSendQueue()
+{
+  // ESP_LOGI(TAG, "Processing send queue, count: %u", sendCount);
+  for (uint8_t i = 0; i < sendCount; i++)
+  {
+    uint8_t idx = (sendHead + i) % MAX_QUEUE_SIZE;
+    QueuedMessage &q = sendQueue[idx];
+    if (q.acknowledged)
+      continue;
 
-//         q.lastSendTime = millis();
-//         q.retryCount++;
-//         ESP_LOGI(TAG, "Retrying message (seq %u), attempt %u", q.msg.sequenceID, q.retryCount);
-//       }
-//       else
-//       {
-//         ESP_LOGE(TAG, "Max retries reached for message (seq %u)", q.msg.sequenceID);
-//         q.acknowledged = true;
-//       }
-//     }
-//   }
-// }
+    if (!q.reqAck)
+    {
+      if (q.retryCount == 0 && millis() - q.lastSendTime >= ACK_TIMEOUT_MS)
+      {
+        sendMessage(reinterpret_cast<const uint8_t *>(&q.msg), sizeof(LoRaMessage), TX_TIMEOUT_MS, idx);
+        q.lastSendTime = millis();
+        q.retryCount++;
+        ESP_LOGI(TAG, "Transmitting message (seq %u) with no ACK required", q.msg.sequenceID);
+      }
+      continue;
+    }
 
-// void LoRaCom::handleAck(uint16_t ackSeqID)
-// {
-//   for (uint8_t i = 0; i < queueCount; i++)
-//   {
-//     if (sendQueue[i].msg.sequenceID == ackSeqID)
-//     {
-//       sendQueue[i].acknowledged = true;
-//       ESP_LOGI(TAG, "ACK received for message with sequence ID: %u", ackSeqID);
-//       break;
-//     }
-//   }
-//   compactSendQueue();
-// }
+    if (millis() - q.lastSendTime >= ACK_TIMEOUT_MS)
+    {
+      if (q.retryCount < MAX_RETRIES)
+      {
+        sendMessage(reinterpret_cast<const uint8_t *>(&q.msg), sizeof(LoRaMessage), TX_TIMEOUT_MS, i);
+        q.lastSendTime = millis();
+        q.retryCount++;
+        ESP_LOGI(TAG, "Retrying command message (seq %u), attempt %u", q.msg.sequenceID, q.retryCount);
+      }
+      else
+      {
+        ESP_LOGE(TAG, "Max retries reached for command message (seq %u)", q.msg.sequenceID);
+        q.failed = true;
+        moveToDoneQueue(q);
+      }
+    }
+  }
+}
 
-// void LoRaCom::receiveMessage()
-// {
-//   if (LoRa.parsePacket() == sizeof(LoRaMessage))
-//   {
-//     LoRaMessage msg;
-//     LoRa.readBytes((uint8_t *)&msg, sizeof(msg));
+void LoRaCom::handleAck(uint16_t ackSeqID)
+{
+  for (uint8_t i = 0; i < sendCount; i++)
+  {
+    uint8_t idx = (sendHead + i) % MAX_QUEUE_SIZE;
+    if (sendQueue[idx].msg.sequenceID == ackSeqID)
+    {
+      sendQueue[idx].acknowledged = true;
+      sendQueue[idx].failed = false;
+      moveToDoneQueue(sendQueue[idx]);
+      ESP_LOGI(TAG, "ACK received for message with sequence ID: %u", ackSeqID);
+      break;
+    }
+  }
+}
 
-//     if (msg.receiverID != DEVICE_ID && msg.receiverID != BROADCAST_ID)
-//       return;
+bool LoRaCom::receiveMessage(LoRaMessage *msg)
+{
+  int state = radio->readData((uint8_t *)msg, sizeof(LoRaMessage));
+  RxFlag = false;
 
-//     switch (msg.type)
-//     {
-//     case TYPE_DATA:
-//       // parse and respond
-//       sendAck(msg.senderID, msg.sequenceID);
-//       break;
+  if (state != RADIOLIB_ERR_NONE)
+  {
+    return false;
+  }
+  else
+  {
+    if (msg->receiverID != DEVICE_ID && msg->receiverID != BROADCAST_ID)
+      return false;
 
-//     case TYPE_ACK:
-//       if (msg.length == sizeof(AckPayload))
-//       {
-//         AckPayload ack;
-//         memcpy(&ack, msg.payload, sizeof(ack));
-//         handleAck(ack.acknowledgedSequenceID);
-//       }
-//       break;
-//     }
-//   }
-// }
+    switch (msg->type)
+    {
+    case TYPE_COMMAND:
+      // parse and respond
+      sendAck(msg->senderID, msg->sequenceID);
+      break;
 
-// void LoRaCom::sendAck(uint8_t targetID, uint16_t seqID)
-// {
-//   AckPayload ack = {.acknowledgedSequenceID = seqID};
+    case TYPE_ACK:
+      if (msg->length == sizeof(AckPayload))
+      {
+        AckPayload ack;
+        memcpy(&ack, msg->payload, sizeof(ack));
+        handleAck(ack.acknowledgedSequenceID);
+      }
+      break;
+    }
 
-//   LoRaMessage msg;
-//   msg.senderID = DEVICE_ID;
-//   msg.receiverID = targetID;
-//   msg.sequenceID = nextSequenceID++;
-//   msg.type = TYPE_ACK;
-//   msg.length = sizeof(ack);
-//   memcpy(msg.payload, &ack, sizeof(ack));
+    return true;
+  }
+}
 
-//   LoRa.beginPacket();
-//   LoRa.write((uint8_t *)&msg, sizeof(msg));
-//   LoRa.endPacket();
+void LoRaCom::sendAck(uint8_t targetID, uint8_t seqID)
+{
+  AckPayload ack = {.acknowledgedSequenceID = seqID};
 
-//   Serial.printf("Sent ACK for seq %u\n", seqID);
-// }
+  LoRaMessage msg;
+  msg.senderID = DEVICE_ID;
+  msg.receiverID = targetID;
+  msg.sequenceID = nextSequenceID++;
+  msg.type = TYPE_ACK;
+  msg.length = sizeof(ack);
+  memcpy(msg.payload, &ack, sizeof(ack));
 
-// void LoRaCom::compactSendQueue()
-// {
-//   uint8_t i = 0;
-//   while (i < queueCount)
-//   {
-//     if (sendQueue[i].acknowledged)
-//     {
-//       // Shift all remaining messages down by one
-//       for (uint8_t j = i; j < queueCount - 1; j++)
-//       {
-//         sendQueue[j] = sendQueue[j + 1];
-//       }
-//       queueCount--; // Reduce queue size
-//       // Do not increment i → check the new message that was shifted into position i
-//     }
-//     else
-//     {
-//       i++;
-//     }
-//   }
-// }
+  sendMessage(reinterpret_cast<const uint8_t *>(&msg), sizeof(LoRaMessage), TX_TIMEOUT_MS, -1);
+
+  ESP_LOGI(TAG, "Sent ACK for sequence ID: %u to target ID: %u", seqID, targetID);
+}
+
+void LoRaCom::compactSendQueue()
+{
+  while (sendCount > 0 && (sendQueue[sendHead].acknowledged || sendQueue[sendHead].failed))
+  {
+    sendHead = (sendHead + 1) % MAX_QUEUE_SIZE;
+    sendCount--;
+  }
+}
+
+bool LoRaCom::isAcked(uint8_t seqID)
+{
+  for (uint8_t i = 0; i < doneCount; i++)
+  {
+    uint8_t idx = (doneHead + i) % MAX_QUEUE_SIZE;
+    if (doneQueue[idx].msg.sequenceID == seqID)
+    {
+      // ESP_LOGI(TAG, "Found in done queue");
+      return doneQueue[idx].acknowledged;
+    }
+  }
+  return false;
+}
+
+bool LoRaCom::isFailed(uint8_t seqID)
+{
+  for (uint8_t i = 0; i < doneCount; i++)
+  {
+    uint8_t idx = (doneHead + i) % MAX_QUEUE_SIZE;
+    if (doneQueue[idx].msg.sequenceID == seqID)
+      return doneQueue[idx].failed;
+  }
+  return false;
+}
+
+bool LoRaCom::isQueued(uint8_t seqID)
+{
+  for (uint8_t i = 0; i < sendCount; i++)
+  {
+    uint8_t idx = (sendHead + i) % MAX_QUEUE_SIZE;
+    // ESP_LOGD(TAG, "Checking sendQueue[%u] seqID: %u", idx, sendQueue[idx].msg.sequenceID);
+    if (sendQueue[idx].msg.sequenceID == seqID)
+      return true;
+  }
+  return false;
+}
+
+bool LoRaCom::stringToCommandPayload(CommandPayload &payload, const char *buffer)
+{
+  // Validate input
+  if (buffer == nullptr || *buffer == '\0')
+    return false; // Null or empty input
+
+  // Parse the commandID
+  char *endPtr;
+  payload.commandID = strtoul(buffer, &endPtr, 10);
+  if (buffer == endPtr || *endPtr != ' ')
+    return false; // Invalid format or no space after commandID
+
+  // Parse the param
+  payload.param = strtof(endPtr + 1, &endPtr);
+  if (endPtr == buffer || *endPtr != '\0')
+    return false; // Invalid format or extra characters after param
+
+  ESP_LOGD(TAG, "Parsed CommandPayload: commandID=%u, param=%.2f",
+           payload.commandID, payload.param);
+
+  return true; // Successfully parsed
+}

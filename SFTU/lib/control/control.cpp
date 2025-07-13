@@ -118,13 +118,13 @@ void Control::begin()
   // Create new tasks for serial data handling, LoRa data handling, and status
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate([](void *param)
-              { static_cast<Control *>(param)->serialDataTask(); }, "SerialDataTask", 4096, this, 2, &m_taskHandles.SerialTaskHandle);
+              { static_cast<Control *>(param)->serialDataTask(); }, "SerialDataTask", 8192, this, 2, &m_taskHandles.SerialTaskHandle);
 
   xTaskCreate([](void *param)
-              { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 4096, this, 2, &m_taskHandles.LoRaTaskHandle);
+              { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 2, &m_taskHandles.LoRaTaskHandle);
 
   xTaskCreate([](void *param)
-              { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 4096, this, 1, &m_taskHandles.StatusTaskHandle);
+              { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 8192, this, 1, &m_taskHandles.StatusTaskHandle);
 
   xTaskCreate([](void *param)
               { static_cast<Control *>(param)->heartBeatTask(); }, "HeartBeatTask", 4096, this, 1, &m_taskHandles.heartBeatTaskHandle);
@@ -279,46 +279,99 @@ void Control::serialDataTask()
 
   while (true)
   {
+    LoRaMessage msg;
+    msg.senderID = DEVICE_ID;
+    msg.receiverID = BROADCAST_ID; // Broadcast to all devices
+    msg.type = TYPE_COMMAND;
+    msg.length = sizeof(CommandPayload);
+
     // Check for incoming data from the serial interface
     if (m_serialCom->getData(buffer, sizeof(buffer), &rxIndex))
     {
-      ESP_LOGI(TAG, "Received: %s", buffer); // Log the received data
-      interpretMessage(buffer, true);        // Process the message
-      // clear the buffer for the next message
-      memset(buffer, 0, sizeof(buffer));
-      rxIndex = 0; // Reset the index
-    }
+      // anything coming into serial should be a command (no reason to send data)
 
-    vTaskDelay(pdMS_TO_TICKS(50));
+      ESP_LOGI(TAG, "Received: %s", buffer); // Log the received data
+
+      CommandPayload payload;
+      if (m_LoRaCom->stringToCommandPayload(payload, buffer))
+      {
+        memcpy(msg.payload, &payload, sizeof(payload));
+
+#ifdef SFTU
+        bool requireAck = false; // for this device, we want to run command directly if through serial
+#else
+        bool requireAck = true;
+#endif
+
+        // send to LoRaCom queue
+        while (!m_LoRaCom->enqueueMessage(msg, requireAck))
+          vTaskDelay(pdMS_TO_TICKS(10));
+        uint8_t commandSeqID = msg.sequenceID; // Save the sequenceID immediately after enqueuing
+
+        while (m_LoRaCom->isQueued(commandSeqID))
+        {
+          vTaskDelay(pdMS_TO_TICKS(10));
+        }
+
+        while (!m_LoRaCom->isAcked(commandSeqID))
+        {
+          vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        m_commander->runCommand(payload.commandID, payload.param);
+
+        // // Wait for ACK for this sequenceID
+        // while (m_LoRaCom->isQueued(msg.sequenceID))
+        // {
+        //   ESP_LOGI(TAG, "Waiting in queue");
+        //   vTaskDelay(pdMS_TO_TICKS(10));
+        // }
+
+        // clear the buffer for the next message
+        memset(buffer, 0, sizeof(buffer));
+        rxIndex = 0; // Reset the index
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(serial_Interval));
   }
 }
 
 void Control::loRaDataTask()
 {
-  char buffer[128]; // Buffer to store incoming data\
-
-  int rxIndex = 0;  // Index to track the length of the received message
-
   pinMode(INDICATOR_LED2, OUTPUT); // Set LED pin as output
+
+  LoRaMessage msg;
 
   while (true)
   {
     // Check for incoming data from the LoRa interface
-    if (m_LoRaCom->getMessage(buffer, sizeof(buffer)))
+    if (m_LoRaCom->getMessage(&msg))
     {
       digitalWrite(INDICATOR_LED2, !digitalRead(INDICATOR_LED2)); // Toggle LED
-      // if (m_LoRaCom->getMessage(buffer, sizeof(buffer), &rxIndex)){
-      ESP_LOGD(TAG, "Received: %s", buffer); // Log the received data
-      interpretMessage(buffer, false);       // Process the message
-      // Send the received data over serial
-      m_serialCom->sendData("Received: <");
-      m_serialCom->sendData(buffer);
-      m_serialCom->sendData(">\n");
 
-      memset(buffer, 0, sizeof(buffer));
+      if (msg.type == TYPE_ACK)
+        continue;
+      else if (msg.type == TYPE_COMMAND)
+      {
+        CommandPayload payload;
+        memcpy(&payload, msg.payload, sizeof(payload));
+        m_commander->runCommand(payload.commandID, payload.param);
+      }
+      else if (msg.type == TYPE_STATUS)
+      {
+        StatusPayload payload;
+        memcpy(&payload, msg.payload, sizeof(payload));
+        String statusMsg = String("status ") + "ID:" + String(msg.senderID) + " RSSI:" + String(payload.rssi) + " battVoltage:" + String(payload.batteryVoltage) + " status:" + String(payload.status) + ("\n");
+        m_serialCom->sendData(statusMsg.c_str());
+      }
+      // Clear for the next iteration
+      memset(&msg, 0, sizeof(msg));
+    }
+    else
+    {
+      m_LoRaCom->processSendQueue(); // Process the send queue to send any pending messages
     }
 
-    vTaskDelay(pdMS_TO_TICKS(50));
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 
@@ -326,92 +379,89 @@ void Control::statusTask()
 {
   static unsigned long lastStatusTime = 0;
 
+  LoRaMessage msg;
+  msg.senderID = DEVICE_ID;
+  msg.receiverID = BROADCAST_ID;
+  msg.type = TYPE_STATUS;
+  msg.length = sizeof(StatusPayload);
+
   while (true)
   {
-    m_batteryVoltage = m_battMonitor->getScaledVoltage(/*num_readings*/ 20);
+    StatusPayload payload;
+    payload.rssi = static_cast<int8_t>(m_LoRaCom->getRssi()); // value from -128 to 127, this should be fine
+    payload.batteryVoltage = m_battMonitor->getScaledVoltage(/*num_readings*/ 20);
+    payload.status = deviceStatus::STATUS_OK;
+    memcpy(msg.payload, &payload, sizeof(payload));
 
-    int32_t rssi = m_LoRaCom->getRssi();
-    String msg = String("status ") + "ID:" + deviceID + " RSSI:" + String(rssi) + " battVoltage:" + String(m_batteryVoltage) + " mode:" + m_mode + " status:" + m_status;
+    String statusMsg = String("status ") + "ID:" + String(msg.senderID) + " RSSI:" + String(payload.rssi) + " battVoltage:" + String(payload.batteryVoltage) + " status:" + String(payload.status) + ("\n");
 
     // Send over serial first (this should be fast)
-    m_serialCom->sendData(((msg + "\n").c_str()));
+    m_serialCom->sendData(statusMsg.c_str());
 
     // Try LoRa transmission with timeout protection
-    ESP_LOGD(TAG, "Starting LoRa transmission...");
 
-    while (m_LoRaCom->checkRx())
-      vTaskDelay(pdMS_TO_TICKS(1));
-    m_LoRaCom->sendMessage(msg.c_str(), 2000);
+    if (m_LoRaCom->enqueueMessage(msg, false))
+      ESP_LOGD(TAG, "Adding to transmit queue...");
+
+    // checkTaskStack();
+
     vTaskDelay(pdMS_TO_TICKS(status_Interval));
   }
 }
 
-void Control::interpretMessage(const char *buffer, bool relayMsgLoRa)
-{
-  m_commander->setCommand(buffer); // Set the command in the commander
-  char *token = m_commander->readAndRemove();
+// void Control::interpretMessage(const char *buffer, bool relayMsgLoRa)
+// {
+//   m_commander->setCommand(buffer); // Set the command in the commander
+//   char *token = m_commander->readAndRemove();
 
-  // eg: "command update gain 22"
-  // eg: "status <deviceID> <RSSI> <batteryLevel> <mode> <status>"
-  // eg: "data <payload>"
+//   if (c_cmp(token, "command"))
+//   {
+//     if (relayMsgLoRa)
+//     {
+//       // send to other devices to sync parameters
+//       while (m_LoRaCom->checkRx())
+//         vTaskDelay(pdMS_TO_TICKS(1));
+//       m_LoRaCom->sendMessage(buffer, 2000);
+//     }
+//     // should probably wait for a success reply before changing THIS device
+//     ESP_LOGD(TAG, "Processing command: %s", buffer);
+//     m_commander->checkCommand();
+//   }
+//   else if (c_cmp(token, "data"))
+//   {
+//     processData(buffer);
+//   }
+//   else if (c_cmp(token, "status"))
+//   {
+//     processData(buffer);
+//   }
+//   else if (c_cmp(token, "help"))
+//   {
+//     ESP_LOGI(TAG,
+//              "Message format: <type> <data1> <data2> ...\n"
+//              "Valid types:\n"
+//              "  - command: for device control\n"
+//              "  - data: for data transmission\n"
+//              "  - message: for standard messages\n"
+//              "  - flash: to print and auto erase logs\n"
+//              "  - status: for device status\n"
+//              "  - help: for displaying help information");
+//   }
 
-  if (c_cmp(token, "command"))
-  {
-    if (relayMsgLoRa)
-    {
-      // send to other devices to sync parameters
-      while (m_LoRaCom->checkRx())
-        vTaskDelay(pdMS_TO_TICKS(1));
-      m_LoRaCom->sendMessage(buffer, 2000);
-    }
-    // should probably wait for a success reply before changing THIS device
-    ESP_LOGD(TAG, "Processing command: %s", buffer);
-    m_commander->checkCommand();
-  }
-  else if (c_cmp(token, "data"))
-  {
-    processData(buffer);
-  }
-  else if (c_cmp(token, "status"))
-  {
-    processData(buffer);
-  }
-  else if (c_cmp(token, "help"))
-  {
-    ESP_LOGI(TAG,
-             "Message format: <type> <data1> <data2> ...\n"
-             "Valid types:\n"
-             "  - command: for device control\n"
-             "  - data: for data transmission\n"
-             "  - message: for standard messages\n"
-             "  - flash: to print and auto erase logs\n"
-             "  - status: for device status\n"
-             "  - help: for displaying help information");
-  }
-
-#ifdef SFTU
-#else
-  else if (c_cmp(token, "flash"))
-  {
-    m_saveFlash->readFile();
-    m_saveFlash->removeFile(); // Update the flash storage
-    m_saveFlash->begin();      // Reinitialize the flash storage
-  }
-#endif
-}
+// #ifdef SFTU
+// #else
+//   else if (c_cmp(token, "flash"))
+//   {
+//     m_saveFlash->readFile();
+//     m_saveFlash->removeFile(); // Update the flash storage
+//     m_saveFlash->begin();      // Reinitialize the flash storage
+//   }
+// #endif
+// }
 
 void Control::processData(const char *buffer)
 {
-  // Process the data message
   ESP_LOGD(TAG, "Processing data");
-
-  // remove the "data" prefix
-  const char *dataStart = strchr(buffer, ' ') + 1; // Find the first space
-  if (dataStart == nullptr)
-  {
-    ESP_LOGE(TAG, "Invalid data format: %s", buffer);
-    return; // Invalid format, return early
-  }
 
   m_serialCom->sendData(buffer); // Send the data part over serial
   m_serialCom->sendData("\n");
@@ -421,8 +471,6 @@ void Control::processData(const char *buffer)
   // save dataStart to flash
   m_saveFlash->writeData((dataStart + String("\n")).c_str());
 #endif
-
-  ESP_LOGI(TAG, "Data processing complete");
 }
 
 void Control::checkTaskStack()
