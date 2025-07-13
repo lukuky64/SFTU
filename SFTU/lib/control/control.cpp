@@ -121,7 +121,7 @@ void Control::begin()
               { static_cast<Control *>(param)->serialDataTask(); }, "SerialDataTask", 8192, this, 2, &m_taskHandles.SerialTaskHandle);
 
   xTaskCreate([](void *param)
-              { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 2, &m_taskHandles.LoRaTaskHandle);
+              { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 3, &m_taskHandles.LoRaTaskHandle);
 
   xTaskCreate([](void *param)
               { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 8192, this, 1, &m_taskHandles.StatusTaskHandle);
@@ -136,7 +136,7 @@ void Control::begin()
               { static_cast<Control *>(param)->sdTask(); }, "sdTask", 8192, this, 3, &m_taskHandles.sdTaskHandle);
 
   xTaskCreate([](void *param)
-              { static_cast<Control *>(param)->displayTask(); }, "sdTask", 4096, this, 1, &m_taskHandles.displayTaskHandle);
+              { static_cast<Control *>(param)->displayTask(); }, "displayTask", 4096, this, 1, &m_taskHandles.displayTaskHandle);
 
   ESP_LOGI(TAG, "Control begun!\n");
 
@@ -156,7 +156,6 @@ void Control::heartBeatTask()
 
 void Control::displayTask()
 {
-  vTaskDelay(pdMS_TO_TICKS(500));
   // m_display->dim(true);
   m_display->begin(); // Begin the display
 
@@ -196,7 +195,7 @@ void Control::analogTask()
     vTaskDelay(interval_ticks); // Yield to other tasks
 
     while ((micros() - lastMicros) < interval_us)
-      ;
+      ; // blocking but we have to do this for accurate timing. shouldn't be greater than 1ms
   }
 }
 

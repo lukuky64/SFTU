@@ -4,9 +4,9 @@
 
 #define MAX_PAYLOAD_SIZE 32
 
-#define MAX_QUEUE_SIZE 5
-#define ACK_TIMEOUT_MS 500
-#define TX_TIMEOUT_MS 1000
+#define MAX_QUEUE_SIZE 10
+#define ACK_TIMEOUT_MS 2000
+#define TX_TIMEOUT_MS 2000
 #define MAX_RETRIES 5
 
 #pragma pack(push, 1)
