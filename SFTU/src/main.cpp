@@ -3,9 +3,10 @@
 #include "control.hpp"
 #include "esp_log.h"
 
-Control* control = nullptr;
+Control *control = nullptr;
 
-void setup() {
+void setup()
+{
   ESP_LOGI("Main", "Starting setup...");
 
   esp_reset_reason_t reason = esp_reset_reason();
@@ -13,12 +14,13 @@ void setup() {
 
   control = new Control();
   control->setup();
-  vTaskDelay(pdMS_TO_TICKS(1'000));  // allow everything to settle
+  vTaskDelay(pdMS_TO_TICKS(2'000));
   control->begin();
 }
 
-void loop() {
-  vTaskDelay(pdMS_TO_TICKS(10'000));  // delay to allow tasks to run
+void loop()
+{
+  vTaskDelay(pdMS_TO_TICKS(10'000)); // delay to allow tasks to run
 }
 
 // #include "HX711.h"
