@@ -8,6 +8,9 @@ from console_widgets import ConsoleManager
 from serial_handler import SerialPort
 from status_parser import StatusManager
 
+# Import CommandID from parsed header file
+from command_parser import CommandID
+
 
 class SFTUApplication(QMainWindow):
     """Main application window for the SFTU GUI."""
@@ -173,7 +176,7 @@ class SFTUApplication(QMainWindow):
             self.console_manager.append_message(f"❌ {error_message}", "system")
             return
         
-        command = f"command update freqMhz {freq_value}"
+        command = f"{CommandID.CMD_UPDATE_FREQMHZ} {freq_value}"
         self._update_CMD(command)
 
     def _update_bandwidth(self) -> None:
@@ -187,7 +190,7 @@ class SFTUApplication(QMainWindow):
             self.console_manager.append_message(f"❌ {error_message}", "system")
             return
         
-        command = f"command update bwKHz {bw_value}"
+        command = f"{CommandID.CMD_UPDATE_BW} {bw_value}"
         self._update_CMD(command)
 
     def _update_spreadingFactor(self) -> None:
@@ -201,7 +204,7 @@ class SFTUApplication(QMainWindow):
             self.console_manager.append_message(f"❌ {error_message}", "system")
             return
         
-        command = f"command update sf {sf_value}"
+        command = f"{CommandID.CMD_UPDATE_SF} {sf_value}"
         self._update_CMD(command)
 
     def _update_gain(self) -> None:
@@ -216,7 +219,7 @@ class SFTUApplication(QMainWindow):
             return
         
         # Send frequency update command
-        command = f"command update gain {gain_value}"
+        command = f"{CommandID.CMD_UPDATE_GAIN} {gain_value}"
         self._update_CMD(command)
 
     def _update_output(self, button_index: int) -> None:
@@ -237,7 +240,7 @@ class SFTUApplication(QMainWindow):
                 button.setStyleSheet("background-color: #f53d3d; color: white;")  # Red for OFF
 
         # Send command
-        command = f"command set output {button_index} {_state}"
+        command = f"{CommandID.CMD_SET_OUTPUT} {float(f'{button_index}.{_state}')}"
         self._update_CMD(command)
 
     def _update_CMD(self, command) -> None:
