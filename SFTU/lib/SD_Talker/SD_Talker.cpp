@@ -311,7 +311,7 @@ bool SD_Talker::startNewLog(String filePrefix)
     return false;
   }
 
-  String startMsg = "Time(s), Force(N)";
+  String startMsg = "Time(us), Force(N)";
 
   if (createFile(startMsg, filePrefix))
   {

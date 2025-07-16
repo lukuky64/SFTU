@@ -21,6 +21,7 @@
 #include "BattMonitor.hpp"
 #include "SD_Talker.hpp"
 #include "actuation.hpp"
+#include "esp_task_wdt.h"
 
 #else
 #include "saveFlash.hpp"

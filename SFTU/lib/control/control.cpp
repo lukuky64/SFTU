@@ -121,7 +121,7 @@ void Control::begin()
               { static_cast<Control *>(param)->serialDataTask(); }, "SerialDataTask", 8192, this, 2, &m_taskHandles.SerialTaskHandle);
 
   xTaskCreate([](void *param)
-              { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 3, &m_taskHandles.LoRaTaskHandle);
+              { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 2, &m_taskHandles.LoRaTaskHandle);
 
   xTaskCreate([](void *param)
               { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 8192, this, 1, &m_taskHandles.StatusTaskHandle);
@@ -276,6 +276,14 @@ void Control::serialDataTask()
   char buffer[128]; // Buffer to store incoming data
   int rxIndex = 0;  // Index to track the length of the received message
 
+  // esp_task_wdt_config_t config = {
+  //     .timeout_ms = 1000, // Set the watchdog timeout to 1 second
+  //     .trigger_panic = true, // Trigger a panic if the watchdog is not reset
+  // };
+
+  // esp_task_wdt_init(&config);
+  // esp_task_wdt_add(NULL);      // Add current task
+
   while (true)
   {
     LoRaMessage msg;
@@ -331,6 +339,7 @@ void Control::serialDataTask()
       }
     }
     vTaskDelay(pdMS_TO_TICKS(serial_Interval));
+    // esp_task_wdt_reset();
   }
 }
 

@@ -307,6 +307,11 @@ bool Commander::runCommand(uint8_t commandID, float param)
   case CMD_SET_OUTPUT:
     handle_set_OUTPUT(param);
     break;
+  case CMD_HARD_RESET:
+#ifdef SFTU
+    ESP_LOGI(TAG, "Hard reset command received, resetting system...");
+    ESP.restart(); // This will reset the ESP system
+#endif
   default:
     ESP_LOGW(TAG, "Unknown command ID: %d", commandID);
     return false;

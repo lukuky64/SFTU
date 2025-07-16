@@ -79,6 +79,7 @@
 			"cinttypes": "cpp",
 			"typeinfo": "cpp",
 			"variant": "cpp"
-		}
+		},
+		"github.copilot.chat.codeGeneration.useInstructionFiles": true
 	}
 }
