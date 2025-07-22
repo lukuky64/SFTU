@@ -4,13 +4,11 @@ Display::Display() {}
 
 Display::~Display() {}
 
-bool Display::init(TwoWire &I2C_Bus)
-{
+bool Display::init(TwoWire &I2C_Bus) {
   display = Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C_Bus, OLED_RESET);
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
-  {
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
     return false;
   }
@@ -18,8 +16,7 @@ bool Display::init(TwoWire &I2C_Bus)
   return true;
 }
 
-void Display::begin()
-{
+void Display::begin() {
   // Clear the buffer
   display.clearDisplay();
   display.display();
@@ -29,78 +26,67 @@ void Display::begin()
   drawPageBar(false, false, false, false, false, 0, true);
 }
 
-void Display::drawForce(float forceInput, bool updateDisp)
-{
+void Display::drawForce(float forceInput, bool updateDisp) {
   static uint8_t fontSize = 2;
   static uint8_t numDigits = 9;
 
   static int16_t cursorX = ((SCREEN_WIDTH - (numDigits * fontSize * 6)) / 2);
-  static int16_t cursorY =
-      ((SCREEN_HEIGHT - 20) / 2) + 20 - ((fontSize - 1) * 8);
+  static int16_t cursorY = ((SCREEN_HEIGHT - 20) / 2) + 20 - ((fontSize - 1) * 8);
 
   display.fillRect(0, 20, SCREEN_WIDTH, (SCREEN_HEIGHT - 20), SSD1306_BLACK);
   display.setTextSize(fontSize);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(cursorX, cursorY);
 
-  int16_t force =
-      static_cast<int16_t>(round(constrain(forceInput, -100'000, 100'000)));
+  int16_t force = static_cast<int16_t>(round(constrain(forceInput, -100'000, 100'000)));
 
   char buf[6];
   sprintf(buf, "%05d", abs(force));
 
-  display.print("F="); // best accuracy is about 10N, 0.05% FS (20kN)
+  display.print("F=");  // best accuracy is about 10N, 0.05% FS (20kN)
   display.print(force < 0 ? "-" : "+");
   display.print(buf);
   display.println("N");
 
-  if (updateDisp)
-  {
+  if (updateDisp) {
     display.display();
   }
 }
 
 void Display::updateForce(float forceInput) { m_force = forceInput; }
 
-void Display::drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready,
-                          float battPer, bool forceUpdateAll)
-{
+void Display::drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready, float battPer, bool forceUpdateAll) {
   drawForce(m_force, false);
   // Update Cell icon if changed
-  if ((cell != m_mainPageStatus.cell) || forceUpdateAll)
-  {
+  if ((cell != m_mainPageStatus.cell) || forceUpdateAll) {
     display.fillRect(0, 0, 16, 16, SSD1306_BLACK);
     drawBitMap(cell ? load_cell_on : load_cell_off, 0, 0);
     m_mainPageStatus.cell = cell;
   }
 
   // Update SD icon if changed
-  if ((sd != m_mainPageStatus.sd) || forceUpdateAll)
-  {
+  if ((sd != m_mainPageStatus.sd) || forceUpdateAll) {
     display.fillRect(16, 0, 16, 16, SSD1306_BLACK);
     drawBitMap(sd ? SD_on : SD_off, 16, 0);
     m_mainPageStatus.sd = sd;
   }
 
   // Update RF icon if changed
-  if ((rf != m_mainPageStatus.rf) || forceUpdateAll)
-  {
+  if ((rf != m_mainPageStatus.rf) || forceUpdateAll) {
     display.fillRect(32, 0, 16, 16, SSD1306_BLACK);
     drawBitMap(rf ? RF_on : RF_off, 32, 0);
     m_mainPageStatus.rf = rf;
   }
 
   // Update Armed icon if changed
-  if ((armed != m_mainPageStatus.armed) || forceUpdateAll)
-  {
+  if ((armed != m_mainPageStatus.armed) || forceUpdateAll) {
     display.fillRect(48, 0, 16, 16, SSD1306_BLACK);
     drawBitMap(armed ? armed_on : armed_off, 48, 0);
     m_mainPageStatus.armed = armed;
   }
 
   // Update Ready icon if changed
-  if ((ready != m_mainPageStatus.ready) || forceUpdateAll)
-  {
+  if ((ready != m_mainPageStatus.ready) || forceUpdateAll) {
     display.fillRect(64, 0, 16, 16, SSD1306_BLACK);
     drawBitMap(ready ? ready_on : ready_off, 64, 0);
     m_mainPageStatus.ready = ready;
@@ -108,10 +94,7 @@ void Display::drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready,
 
   // Update Battery icon if the displayed icon (rounded to nearest 10) is
   // different
-  if ((((int)(battPer + 5) / 10) !=
-       ((int)(m_mainPageStatus.battPer + 5) / 10)) ||
-      forceUpdateAll)
-  {
+  if ((((int)(battPer + 5) / 10) != ((int)(m_mainPageStatus.battPer + 5) / 10)) || forceUpdateAll) {
     // Determine battery icon based on battPer
     Bitmap newBattIcon;
     if (battPer < 10)
@@ -142,8 +125,7 @@ void Display::drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready,
     m_mainPageStatus.battPer = battPer;
   }
 
-  if (forceUpdateAll)
-  {
+  if (forceUpdateAll) {
     display.fillRect(0, 17, display.width(), 2, SSD1306_BLACK);
     display.fillRect(0, 17, display.width(), 2, SSD1306_WHITE);
   }
@@ -152,18 +134,14 @@ void Display::drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready,
   display.display();
 }
 
-void Display::drawIntroPage()
-{
+void Display::drawIntroPage() {
   display.clearDisplay();
 
-  display.drawBitmap((display.width() - logo.width) / 2,
-                     (display.height() - logo.height) / 2, logo.bmp, logo.width,
-                     logo.height, 1);
+  display.drawBitmap((display.width() - Sunburnlogo.width) / 2, (display.height() - Sunburnlogo.height) / 2, Sunburnlogo.bmp, Sunburnlogo.width, Sunburnlogo.height, 1);
 
   display.display();
 
-  for (int i = 0; i < 6; i++)
-  {
+  for (int i = 0; i < 6; i++) {
     vTaskDelay(pdMS_TO_TICKS(100));
     display.invertDisplay(true);
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -174,15 +152,12 @@ void Display::drawIntroPage()
   display.display();
 }
 
-void Display::drawBitMap(Bitmap data, int16_t x, int16_t y)
-{
-  if (x == -1)
-  {
+void Display::drawBitMap(Bitmap data, int16_t x, int16_t y) {
+  if (x == -1) {
     x = (display.width() - data.width) / 2;
   }
 
-  if (y == -1)
-  {
+  if (y == -1) {
     y = (display.height() - data.height) / 2;
   }
 
@@ -190,8 +165,7 @@ void Display::drawBitMap(Bitmap data, int16_t x, int16_t y)
   display.display();
 }
 
-void Display::showSuccess(String msg)
-{
+void Display::showSuccess(String msg) {
   display.clearDisplay();
 
   display.setTextSize(1);
@@ -206,8 +180,7 @@ void Display::showSuccess(String msg)
   display.display();
 }
 
-void Display::showError(String msg, uint16_t duration_ms)
-{
+void Display::showError(String msg, uint16_t duration_ms) {
   display.clearDisplay();
 
   display.setTextSize(2);

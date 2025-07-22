@@ -5,15 +5,16 @@
 #include "Arduino.h"
 #include "esp_log.h"
 
-typedef struct
-{
-  float value;
+typedef struct {
+  float value1;
+  float value2;
+  float value3;
+  float value4;
   uint32_t timestamp;
 } SampleWithTimestamp;
 
-class SD_Talker
-{
-public:
+class SD_Talker {
+ public:
   SD_Talker();
   ~SD_Talker();
 
@@ -47,7 +48,7 @@ public:
   bool writeBlockToSD(const SampleWithTimestamp *block, size_t count);
   bool startNewLog(String filePrefix);
 
-private:
+ private:
   File dataFile;
   String fileName;
   String buffer;

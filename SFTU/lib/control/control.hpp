@@ -4,7 +4,7 @@
 
 #include <cstring>
 
-#include "../Pin_Defs.hpp"
+#include "Definitions.hpp"
 #include "LoRaCom.hpp"
 #include "SerialCom.hpp"
 #include "Wire.h"
@@ -53,14 +53,13 @@
 //   float batteryLevel;  // Battery level in volts
 // };
 
-class Control
-{
-public:
+class Control {
+ public:
   Control();
   void setup();
   void begin();
 
-private:
+ private:
   TwoWire *m_I2C_BUS;
   TwoWire *m_ANALOG_I2C_BUS;
 
@@ -72,14 +71,18 @@ private:
   SD_Talker *m_sdTalker;
   Display *m_display;
   BattMonitor *m_battMonitor;
+  ADCprocessing *m_adcProcessing;
 
 #ifdef SFTU
   Actuation *m_actuation;
 #else
   SaveFlash *m_saveFlash;
 #endif
+  // these need mutexes
 
-  adcADS *m_adcADS;
+  // There are 2 ADCs, each with 2 differential channels
+  adcADS *m_adcADS_12;
+  adcADS *m_adcADS_34;
 
   unsigned long serial_Interval = 50;
   unsigned long lora_Interval = 50;
@@ -88,8 +91,7 @@ private:
 
   static constexpr const char *TAG = "Control";
 
-  struct handles
-  {
+  struct handles {
     TaskHandle_t SerialTaskHandle = nullptr;
     TaskHandle_t LoRaTaskHandle = nullptr;
     TaskHandle_t StatusTaskHandle = nullptr;
@@ -101,20 +103,14 @@ private:
 
   handles m_taskHandles;
 
-  struct HandleMap
-  {
+  struct HandleMap {
     String name;
     TaskHandle_t *handle;
   };
 
   HandleMap m_taskHandleMap[7] = {
-      {"SerialTaskHandle", &m_taskHandles.SerialTaskHandle},
-      {"LoRaTaskHandle", &m_taskHandles.LoRaTaskHandle},
-      {"StatusTaskHandle", &m_taskHandles.StatusTaskHandle},
-      {"heartBeatTaskHandle", &m_taskHandles.heartBeatTaskHandle},
-      {"analogTaskHandle", &m_taskHandles.analogTaskHandle},
-      {"sdTaskHandle", &m_taskHandles.sdTaskHandle},
-      {"displayTaskHandle", &m_taskHandles.displayTaskHandle},
+      {"SerialTaskHandle", &m_taskHandles.SerialTaskHandle}, {"LoRaTaskHandle", &m_taskHandles.LoRaTaskHandle}, {"StatusTaskHandle", &m_taskHandles.StatusTaskHandle},   {"heartBeatTaskHandle", &m_taskHandles.heartBeatTaskHandle},
+      {"analogTaskHandle", &m_taskHandles.analogTaskHandle}, {"sdTaskHandle", &m_taskHandles.sdTaskHandle},     {"displayTaskHandle", &m_taskHandles.displayTaskHandle},
   };
 
   void serialDataTask();
@@ -132,15 +128,14 @@ private:
   void processData(const char *buffer);
   void queueSample();
 
-  String deviceID = "SFTU"; // Unique identifier for the device
+  String deviceID = "SFTU";  // Unique identifier for the device
 
   // Mode of operation (transmit, receive, transceive, etc.)
   String m_mode = "transceive";
-  String m_status = "ok"; // Status of the device (e.g., "ok", "error", etc.)
+  String m_status = "ok";  // Status of the device (e.g., "ok", "error", etc.)
   float m_batteryVoltage = 0;
 
   xQueueHandle m_adcQueue;
-  uint16_t adcSPS = 860; // Set the data rate for the ADC
 
   // Data payload;
 };

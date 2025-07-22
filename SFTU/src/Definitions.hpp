@@ -51,3 +51,12 @@
 
 #define EXT_BTN1 17
 #define EXT_BTN2 7
+
+// Constants
+
+#define VBATT_SCALE 4.032f    // Voltage divider scale factor for battery voltage measurement
+#define CELL_SCALE 1360.905f  // Scale factor for force measurement. 5kg Cell <50.638434f>, 300kg Cell <1360.905f>
+
+#define ADC_SPS 860  // about 333Hz max in single shot mode. 860Hz in continuous mode
+
+// 5kg Cell (50.638434 N/V), 300kg Cell (?)

@@ -2,21 +2,21 @@
 
 #include <Adafruit_ADS1X15.h>
 
+#include "SemaphoreGuard.hpp"
 #include "adcBase.hpp"
 
 #define ADS0_ADDR 0x48
 #define ADS1_ADDR 0x49
 
-class adcADS : public adcBase
-{
-public:
+class adcADS : public adcBase {
+ public:
   adcADS(TwoWire &Wire);
 
   // Initialize the ADC
   void init(uint8_t addr);
 
   // Read latest value from the ADC
-  float readNewVolt() override;
+  float readNewVolt(int mux);
 
   float getLastVolt();
 
@@ -36,17 +36,16 @@ public:
   bool setDataRate(uint16_t rate) override;
 
   // set up the configuration for the ADC inputs
-  void setInputConfig(adsGain_t gain = GAIN_TWOTHIRDS,
-                      uint8_t dataRate = RATE_ADS1115_128SPS,
-                      int mux = ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
+  void setInputConfig(adsGain_t gain = GAIN_TWOTHIRDS, uint8_t dataRate = RATE_ADS1115_128SPS, int mux = ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
 
-  float getAverageVolt(uint16_t numSamples);
+  float getAverageVolt(uint16_t numSamples, int mux);
 
-private:
+ private:
   Adafruit_ADS1115 *m_adc;
   int m_mux;
   TwoWire *m_I2C_BUS;
   bool continuousMode = false;
+  SemaphoreHandle_t m_adcMutex = nullptr;
 
   // Add any private members or methods needed for the ADS ADC implementation
 };
