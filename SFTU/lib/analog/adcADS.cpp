@@ -29,20 +29,33 @@ void adcADS::startContinuous() {
   m_adc->startADCReading(m_mux, continuousMode);
 }
 
-float adcADS::readNewVolt(int mux) {
-  continuousMode = false;
-  m_adc->startADCReading(m_mux, continuousMode);
+float adcADS::readNewVolt(const uint16_t mux) {
+  SemaphoreGuard Guard_adc(m_adcMutex);
+  if (Guard_adc.acquired()) {
+    continuousMode = false;
+    m_adc->startADCReading(mux, continuousMode);
 
-  // Wait for the conversion to complete
-  while (!m_adc->conversionComplete());
+    // Wait for the conversion to complete
+    while (!m_adc->conversionComplete());
+    // ESP_LOGD(TAG, "ADC conversion complete for mux %d", mux);
 
-  m_lastResultV = m_adc->computeVolts(m_adc->getLastConversionResults());
-  return m_lastResultV;
+    m_lastResultV = m_adc->computeVolts(m_adc->getLastConversionResults());
+    return m_lastResultV;
+  } else {
+    ESP_LOGE(TAG, "Failed to acquire ADC mutex in getAverageVolt");
+    return 0.0f;  // Return 0 if mutex acquisition failed
+  }
 }
 
 float adcADS::getLastVolt() {
-  m_lastResultV = m_adc->computeVolts(m_adc->getLastConversionResults());
-  return m_lastResultV;
+  SemaphoreGuard Guard_adc(m_adcMutex);
+  if (Guard_adc.acquired()) {
+    m_lastResultV = m_adc->computeVolts(m_adc->getLastConversionResults());
+    return m_lastResultV;
+  } else {
+    ESP_LOGE(TAG, "Failed to acquire ADC mutex in getAverageVolt");
+    return 0.0f;  // Return 0 if mutex acquisition failed
+  }
 }
 
 bool adcADS::setDataRate(uint16_t rate) {
@@ -111,23 +124,19 @@ bool adcADS::setGain(int gain) {
   return true;
 }
 
-float adcADS::getAverageVolt(uint16_t numSamples, int mux) {
+float adcADS::getAverageVolt(uint16_t numSamples, const uint16_t mux) {
   float averageSample = 0.0f;
-  SemaphoreGuard Guard_adc(m_adcMutex);
-  if (Guard_adc.acquired()) {
-    for (int i = 0; i < numSamples; ++i) {
-      if (continuousMode) {
-        averageSample += getLastVolt();
-      } else {
-        averageSample += readNewVolt(m_mux);
-        ESP_LOGD(TAG, "Sample %d", i + 1);
-      }
-      vTaskDelay(pdMS_TO_TICKS(1));
+  ESP_LOGD(TAG, "Acquired ADC mutex in getAverageVolt");
+  for (int i = 0; i < numSamples; ++i) {
+    if (continuousMode) {
+      averageSample += getLastVolt();
+    } else {
+      averageSample += readNewVolt(mux);
+      // ESP_LOGD(TAG, "Sample %d: %.3f V", i + 1, m_lastResultV);
     }
-    averageSample /= numSamples;
-    ESP_LOGD(TAG, "Average sample voltage: %.3f V", averageSample);
-  } else {
-    ESP_LOGE(TAG, "Failed to acquire ADC mutex in getAverageVolt");
+    vTaskDelay(pdMS_TO_TICKS(1));
   }
+  averageSample /= numSamples;
+  ESP_LOGD(TAG, "Average sample voltage: %.3f V", averageSample);
   return averageSample;
 }

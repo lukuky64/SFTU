@@ -134,6 +134,7 @@ class Control {
   String m_mode = "transceive";
   String m_status = "ok";  // Status of the device (e.g., "ok", "error", etc.)
   float m_batteryVoltage = 0;
+  volatile bool m_pauseADC = false;  // Flag to pause ADC sampling
 
   xQueueHandle m_adcQueue;
 

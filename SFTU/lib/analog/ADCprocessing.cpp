@@ -22,7 +22,7 @@ void ADCprocessing::calibrate(float objectMass, float voltage) {
   float taredVoltage = voltage - m_Voffset;
   ESP_LOGI("ADCprocessing", "Calibrating with object mass: %.3f kg, tared voltage: %.3f V", objectMass, taredVoltage);
   float objectForce = objectMass * m_gravity;
-  m_Units_per_V = objectForce / (voltage - m_Voffset);
+  m_Units_per_V = objectForce / (taredVoltage);
   ESP_LOGI("ADCprocessing", "Calibration complete: Units_per_V = %.3f N/V", m_Units_per_V);
 }
 

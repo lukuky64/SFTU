@@ -16,7 +16,7 @@ class adcADS : public adcBase {
   void init(uint8_t addr);
 
   // Read latest value from the ADC
-  float readNewVolt(int mux);
+  float readNewVolt(const uint16_t mux);
 
   float getLastVolt();
 
@@ -38,7 +38,7 @@ class adcADS : public adcBase {
   // set up the configuration for the ADC inputs
   void setInputConfig(adsGain_t gain = GAIN_TWOTHIRDS, uint8_t dataRate = RATE_ADS1115_128SPS, int mux = ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
 
-  float getAverageVolt(uint16_t numSamples, int mux);
+  float getAverageVolt(uint16_t numSamples, const uint16_t mux);
 
  private:
   Adafruit_ADS1115 *m_adc;

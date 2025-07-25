@@ -173,17 +173,16 @@ void Control::analogTask() {
 
   uint64_t lastMicros = 0;
   while (true) {
-    lastMicros = micros();
-    queueSample();
+    // lastMicros = micros();
 
-    // vTaskDelay(pdMS_TO_TICKS(1));  // Yield to other tasks
+    if (!m_pauseADC) {
+      queueSample();
+    }
 
     vTaskDelay(pdMS_TO_TICKS(interval_ticks));  // Yield to other tasks
 
-    // if ((micros() - lastMicros) < interval_us) {
-    // };
-
-    while ((micros() - lastMicros) < interval_us);  // this will block
+    // HACK: This helps maintain consistent timing, but is blocking other tasks which is causing issues.
+    // while ((micros() - lastMicros) < interval_us);  // this will block
   }
 }
 
@@ -300,9 +299,11 @@ void Control::serialDataTask() {
           vTaskDelay(pdMS_TO_TICKS(10));
         }
 
-        ESP_LOGI(TAG, "LINE 300");
+        // ESP_LOGI(TAG, "LINE 300");
 
+        m_pauseADC = true;
         m_commander->runCommand(payload.commandID, payload.param);
+        m_pauseADC = false;
         // // Wait for ACK for this sequenceID
         // while (m_LoRaCom->isQueued(msg.sequenceID))
         // {
@@ -335,7 +336,9 @@ void Control::loRaDataTask() {
       else if (msg.type == TYPE_COMMAND) {
         CommandPayload payload;
         memcpy(&payload, msg.payload, sizeof(payload));
+        m_pauseADC = true;
         m_commander->runCommand(payload.commandID, payload.param);
+        m_pauseADC = false;
       } else if (msg.type == TYPE_STATUS) {
         StatusPayload payload;
         memcpy(&payload, msg.payload, sizeof(payload));
