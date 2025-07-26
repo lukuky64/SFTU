@@ -86,7 +86,7 @@ class Control {
 
   unsigned long serial_Interval = 50;
   unsigned long lora_Interval = 50;
-  unsigned long status_Interval = 5'000;
+  unsigned long status_Interval = 2'000;
   unsigned long heartBeat_Interval = 500;
 
   static constexpr const char *TAG = "Control";
@@ -122,6 +122,9 @@ class Control {
   void displayTask();
   void checkTaskStack();
 
+  void setLatestSample(const SampleWithTimestamp &sample);
+  void getLatestSample(SampleWithTimestamp &sample);
+
   volatile bool adcSampleFlag = false;
 
   // void interpretMessage(const char *buffer, bool relayMsgLoRa);
@@ -137,6 +140,9 @@ class Control {
   volatile bool m_pauseADC = false;  // Flag to pause ADC sampling
 
   xQueueHandle m_adcQueue;
+
+  SemaphoreHandle_t m_latestSampleMutex = nullptr;
+  SampleWithTimestamp m_latestSample;
 
   // Data payload;
 };

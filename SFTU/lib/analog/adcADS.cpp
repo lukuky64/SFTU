@@ -8,6 +8,10 @@ adcADS::adcADS(TwoWire &Wire) {
 }
 
 void adcADS::init(uint8_t addr) {
+  // Activate I2C high-speed mode by sending the Hs controller code (0x08)
+  m_I2C_BUS->beginTransmission(0x08);  // Hs controller code, not acknowledged
+  m_I2C_BUS->endTransmission();
+
   if (!m_adc->begin(addr, m_I2C_BUS)) {
     Serial.println("Failed to initialise ADS1115.");
   }
@@ -36,7 +40,10 @@ float adcADS::readNewVolt(const uint16_t mux) {
     m_adc->startADCReading(mux, continuousMode);
 
     // Wait for the conversion to complete
-    while (!m_adc->conversionComplete());
+    while (!m_adc->conversionComplete()) {
+      // NOTE: This slows things slightly, but atleast we aren't blocking
+      vTaskDelay(pdMS_TO_TICKS(1));  // Yield to other tasks
+    }
     // ESP_LOGD(TAG, "ADC conversion complete for mux %d", mux);
 
     m_lastResultV = m_adc->computeVolts(m_adc->getLastConversionResults());

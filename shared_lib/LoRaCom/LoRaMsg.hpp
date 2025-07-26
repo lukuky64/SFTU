@@ -2,16 +2,15 @@
 
 #include <Arduino.h>
 
-#define MAX_PAYLOAD_SIZE 32
+#define MAX_PAYLOAD_SIZE 64
 
 #define MAX_QUEUE_SIZE 10
-#define ACK_TIMEOUT_MS 2000
-#define TX_TIMEOUT_MS 2000
-#define MAX_RETRIES 5
+#define ACK_TIMEOUT_MS 1000
+#define TX_TIMEOUT_MS 3000
+#define MAX_RETRIES 16
 
 #pragma pack(push, 1)
-struct LoRaMessage
-{
+struct LoRaMessage {
   uint8_t senderID;
   uint8_t receiverID;
   uint8_t sequenceID;
@@ -20,27 +19,27 @@ struct LoRaMessage
   uint8_t payload[MAX_PAYLOAD_SIZE];
 };
 
-struct StatusPayload
-{
+struct StatusPayload {
   int8_t rssi;
   float batteryVoltage;
-  uint8_t status; // e.g. enum or code
+  uint8_t status;  // e.g. enum or code
+  float IN1;
+  float IN2;
+  float IN3;
+  float IN4;
 };
 
-struct CommandPayload
-{
+struct CommandPayload {
   uint8_t commandID;
   float param;
 };
 
-struct AckPayload
-{
+struct AckPayload {
   uint8_t acknowledgedSequenceID;
 };
 #pragma pack(pop)
 
-struct QueuedMessage
-{
+struct QueuedMessage {
   LoRaMessage msg;
   uint8_t retryCount = 0;
   unsigned long lastSendTime = 0;
@@ -49,15 +48,13 @@ struct QueuedMessage
   bool reqAck = false;
 };
 
-enum messageType
-{
+enum messageType {
   TYPE_STATUS = 0,
   TYPE_COMMAND = 1,
   TYPE_ACK = 2,
 };
 
-enum deviceStatus
-{
+enum deviceStatus {
   STATUS_OK = 0,
   STATUS_ERROR = 1,
   STATUS_BUSY = 2,

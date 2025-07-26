@@ -12,7 +12,7 @@ Control::Control() {
   m_adcADS_12 = new adcADS(*m_ANALOG_I2C_BUS);
   m_adcADS_34 = new adcADS(*m_ANALOG_I2C_BUS);
 
-  m_adcProcessing = new ADCprocessing(CELL_SCALE);
+  m_adcProcessing = new ADCprocessing();
 
   m_sdTalker = new SD_Talker();
 
@@ -27,17 +27,21 @@ Control::Control() {
   m_commander = new Commander(m_serialCom, m_LoRaCom);
   m_saveFlash = new SaveFlash(m_serialCom);
 #endif
+
+  m_latestSampleMutex = xSemaphoreCreateMutex();
 }
 
 void Control::setup() {
 #ifdef SFTU
-  m_I2C_BUS->setClock(400'000);
-  m_ANALOG_I2C_BUS->setClock(400'000);
-  m_SPI_BUS->setFrequency(40'000'000);
 
   m_I2C_BUS->begin(I2C2_SDA, I2C2_SCL);
   m_ANALOG_I2C_BUS->begin(I2C1_SDA, I2C1_SCL);
   m_SPI_BUS->begin(SPI_CLK_SD, SPI_MISO_SD, SPI_MOSI_SD);
+
+  m_I2C_BUS->setClock(400'000);
+  m_ANALOG_I2C_BUS->setClock(1'000'000);
+  m_SPI_BUS->setFrequency(40'000'000);
+  // ESP_LOGD(TAG, "Analog clock actual frequency: %d Hz", m_ANALOG_I2C_BUS->getClock());
 
   m_actuation->init();
   m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
@@ -112,9 +116,9 @@ void Control::begin() {
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate([](void *param) { static_cast<Control *>(param)->serialDataTask(); }, "SerialDataTask", 8192, this, 2, &m_taskHandles.SerialTaskHandle);
 
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 2, &m_taskHandles.LoRaTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 3, &m_taskHandles.LoRaTaskHandle);
 
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 8192, this, 1, &m_taskHandles.StatusTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 8192, this, 2, &m_taskHandles.StatusTaskHandle);
 
   xTaskCreate([](void *param) { static_cast<Control *>(param)->heartBeatTask(); }, "HeartBeatTask", 4096, this, 1, &m_taskHandles.heartBeatTaskHandle);
 
@@ -144,23 +148,24 @@ void Control::displayTask() {
 
   while (true) {
     // Update the display with the current force value
-    if (m_adcQueue != nullptr) {
-      SampleWithTimestamp sample;
-      if (xQueuePeek(m_adcQueue, &sample, pdMS_TO_TICKS(10))) {
-        m_display->drawForce(sample.value1, true);
-      }
-    }
+    // if (m_adcQueue != nullptr) {
+    //   if (xQueuePeek(m_adcQueue, &sample, pdMS_TO_TICKS(50))) {
+    //   }
+    // }
+    SampleWithTimestamp sample;
+    getLatestSample(sample);  // Get the latest sample from the queue
+    m_display->drawForce(sample.value1, sample.value2, sample.value3, sample.value4, true);
     vTaskDelay(pdMS_TO_TICKS(40));
   }
 }
 
 void Control::analogTask() {
-  m_adcADS_12->setInputConfig(GAIN_FOUR, RATE_ADS1115_860SPS, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // ADS1X15_REG_CONFIG_MUX_DIFF_0_1, ADS1X15_REG_CONFIG_MUX_DIFF_2_3
-  m_adcADS_12->setDataRate(ADC_SPS);
+  m_adcADS_12->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // ADS1X15_REG_CONFIG_MUX_DIFF_0_1, ADS1X15_REG_CONFIG_MUX_DIFF_2_3
+  // m_adcADS_12->setDataRate(ADC_SPS);
   // m_adcADS_12->startContinuous();
 
-  m_adcADS_34->setInputConfig(GAIN_FOUR, RATE_ADS1115_860SPS, ADS1X15_REG_CONFIG_MUX_DIFF_2_3);  // ADS1X15_REG_CONFIG_MUX_DIFF_0_1, ADS1X15_REG_CONFIG_MUX_DIFF_2_3
-  m_adcADS_34->setDataRate(ADC_SPS);
+  m_adcADS_34->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS, ADS1X15_REG_CONFIG_MUX_DIFF_2_3);  // ADS1X15_REG_CONFIG_MUX_DIFF_0_1, ADS1X15_REG_CONFIG_MUX_DIFF_2_3
+  // m_adcADS_34->setDataRate(ADC_SPS);
   // m_adcADS_34->startContinuous();
 
   uint64_t interval_us = (uint64_t)(1e6 / (double)ADC_SPS);
@@ -169,20 +174,28 @@ void Control::analogTask() {
   vTaskDelay(pdMS_TO_TICKS(100));
   m_adcADS_12->getAverageVolt(100, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // throw away some data first
   float averageSample = m_adcADS_12->getAverageVolt(200, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
+
+  m_adcProcessing->setScale(CELL_SCALE);
   m_adcProcessing->tareVolts(averageSample);
 
+  uint64_t queueTime = 0;
   uint64_t lastMicros = 0;
-  while (true) {
-    // lastMicros = micros();
 
+  while (true) {
     if (!m_pauseADC) {
+      lastMicros = micros();
       queueSample();
+      // queueTime = micros() - lastMicros;
+      // ESP_LOGD(TAG, "Time for queue sample: %lu us", queueTime);
     }
 
-    vTaskDelay(pdMS_TO_TICKS(interval_ticks));  // Yield to other tasks
+    // vTaskDelay(pdMS_TO_TICKS(interval_ticks));  // Yield to other tasks
 
-    // HACK: This helps maintain consistent timing, but is blocking other tasks which is causing issues.
-    // while ((micros() - lastMicros) < interval_us);  // this will block
+    vTaskDelay(pdMS_TO_TICKS(1));  // can't starve other tasks
+    while ((micros() - lastMicros) < interval_us) {
+      // ESP_LOGD(TAG, "Waiting in analogtask");
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
   }
 }
 
@@ -195,7 +208,11 @@ void Control::queueSample() {
   sample.value2 = m_adcProcessing->processVtoN(m_adcADS_12->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_2_3));
 
   sample.value3 = m_adcProcessing->processVtoN(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_0_1));
-  sample.value4 = m_adcProcessing->processVtoN(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_2_3));
+
+  // TODO: create a new adcProcessor, need to tare it inidividually
+  sample.value4 = m_adcProcessing->processVtoN(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_SINGLE_2), PT_150_SCALE);
+
+  setLatestSample(sample);
 
   if (xQueueSend(m_adcQueue, &sample, 0) != pdPASS) {
     // Queue is full, remove oldest and try again
@@ -291,12 +308,12 @@ void Control::serialDataTask() {
         while (!m_LoRaCom->enqueueMessage(msg, requireAck)) vTaskDelay(pdMS_TO_TICKS(10));
         uint8_t commandSeqID = msg.sequenceID;  // Save the sequenceID immediately after enqueuing
 
-        while (m_LoRaCom->isQueued(commandSeqID)) {
-          vTaskDelay(pdMS_TO_TICKS(10));
-        }
+        // while (m_LoRaCom->isQueued(commandSeqID)) {
+        //   vTaskDelay(pdMS_TO_TICKS(10));
+        // }
 
-        while (!m_LoRaCom->isAcked(commandSeqID)) {
-          vTaskDelay(pdMS_TO_TICKS(10));
+        if (requireAck) {
+          while (!m_LoRaCom->isAcked(commandSeqID)) vTaskDelay(pdMS_TO_TICKS(10));
         }
 
         // ESP_LOGI(TAG, "LINE 300");
@@ -366,12 +383,32 @@ void Control::statusTask() {
 
   while (true) {
     StatusPayload payload;
+
     payload.rssi = static_cast<int8_t>(m_LoRaCom->getRssi());  // value from -128 to 127, this should be fine
     payload.batteryVoltage = m_battMonitor->getScaledVoltage(/*num_readings*/ 20);
     payload.status = deviceStatus::STATUS_OK;
+
+    SampleWithTimestamp sample;
+    getLatestSample(sample);
+    payload.IN1 = sample.value1;
+    payload.IN2 = sample.value2;
+    payload.IN3 = sample.value3;
+    payload.IN4 = sample.value4;
+
+    // if (m_adcQueue != nullptr) {
+    // Get the latest sample from the queue
+    // if (xQueuePeek(m_adcQueue, &sample, pdMS_TO_TICKS(50))) {
+    //   payload.IN1 = sample.value1;
+    //   payload.IN2 = sample.value2;
+    //   payload.IN3 = sample.value3;
+    //   payload.IN4 = sample.value4;
+    // }
+    // }
+
     memcpy(msg.payload, &payload, sizeof(payload));
 
-    String statusMsg = String("status ") + "ID:" + String(msg.senderID) + " RSSI:" + String(payload.rssi) + " battVoltage:" + String(payload.batteryVoltage) + " status:" + String(payload.status) + ("\n");
+    String statusMsg = String("status ") + "ID:" + String(msg.senderID) + " RSSI:" + String(payload.rssi) + " battVoltage:" + String(payload.batteryVoltage) + " status:" + String(payload.status) + " IN1:" + String(payload.IN1) + " IN2:" + String(payload.IN2) + " IN3:" + String(payload.IN3) +
+                       " IN4:" + String(payload.IN4) + "\n";
 
     // Send over serial first (this should be fast)
     m_serialCom->sendData(statusMsg.c_str());
@@ -458,5 +495,23 @@ void Control::checkTaskStack() {
     } else {
       ESP_LOGI(TAG, "%s: Task handle is null", task.name.c_str());
     }
+  }
+}
+
+void Control::setLatestSample(const SampleWithTimestamp &sample) {
+  SemaphoreGuard Guard_adc(m_latestSampleMutex);
+  if (Guard_adc.acquired()) {
+    m_latestSample = sample;  // Update the latest sample with the new data
+  } else {
+    ESP_LOGW(TAG, "Failed to acquire mutex for latest sample update");
+  }
+}
+
+void Control::getLatestSample(SampleWithTimestamp &sample) {
+  SemaphoreGuard Guard_adc(m_latestSampleMutex);
+  if (Guard_adc.acquired()) {
+    sample = m_latestSample;  // Copy the latest sample data
+  } else {
+    ESP_LOGW(TAG, "Failed to acquire mutex for latest sample retrieval");
   }
 }

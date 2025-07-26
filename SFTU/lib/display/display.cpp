@@ -23,7 +23,48 @@ void Display::begin() {
 
   drawIntroPage();
 
-  drawPageBar(false, false, false, false, false, 0, true);
+  // drawPageBar(false, false, false, false, false, 0, true);
+}
+
+void Display::drawForce(float input1, float input2, float input3, float input4, bool updateDisp) {
+  // Use larger font and display 4 inputs in a vertical column
+  uint8_t fontSize = 2;
+  uint8_t numDigits = 5;  // e.g., "-12345"
+  int16_t startX = 4;
+  int16_t topMargin = 2;     // minimal margin at top
+  int16_t bottomMargin = 2;  // minimal margin at bottom
+
+  display.clearDisplay();
+  display.setTextSize(fontSize);
+  display.setTextColor(SSD1306_WHITE);
+
+  int16_t inputs[4];
+  inputs[0] = static_cast<int16_t>(round(constrain(input1, -99'999, 99'999)));
+  inputs[1] = static_cast<int16_t>(round(constrain(input2, -99'999, 99'999)));
+  inputs[2] = static_cast<int16_t>(round(constrain(input3, -99'999, 99'999)));
+  inputs[3] = static_cast<int16_t>(round(constrain(input4, -99'999, 99'999)));
+
+  // Use full display height
+  int16_t availableHeight = SCREEN_HEIGHT - topMargin - bottomMargin;
+  int16_t spacing = availableHeight / 4;
+
+  for (uint8_t i = 0; i < 4; ++i) {
+    int16_t x = startX;
+    int16_t y = topMargin + i * spacing;
+    display.setCursor(x, y);
+    char buf[8];
+    sprintf(buf, "%05d", abs(inputs[i]));
+    display.print("I");
+    display.print(i + 1);
+    display.print("=");
+    display.print(inputs[i] < 0 ? "-" : "+");
+    display.print(buf);
+    display.print("U");
+  }
+
+  if (updateDisp) {
+    display.display();
+  }
 }
 
 void Display::drawForce(float forceInput, bool updateDisp) {

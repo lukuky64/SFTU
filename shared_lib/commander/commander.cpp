@@ -307,4 +307,6 @@ void Commander::handle_set_OUTPUT(float indexAndState) {
 #else
 void Commander::handle_calibrateCell(float massKg) { return; }
 void Commander::handle_set_OUTPUT(float indexAndState) { return; }
+void Commander::handle_setCellScale(float scale) { return; }
+
 #endif
