@@ -62,8 +62,8 @@
 
 #define EXCITATION_BIAS 4.096f
 
-#define PT_1600_SCALE 1600.0f / (0.8 * 4.096f)  // Pressure transducer scale factor. 1600 PSI <>
-#define PT_150_SCALE 150.0f / (0.8 * 4.096f)    // 0.8 is the span (0.1 to 0.9), 150 is the full scale of the sensor. 4.096f is the Vbias
+#define PT_1600_SCALE 1600.0f / (0.8 * EXCITATION_BIAS)  // Pressure transducer scale factor. 1600 PSI <>
+#define PT_150_SCALE 150.0f / (0.8 * EXCITATION_BIAS)    // 0.8 is the span (0.1 to 0.9), 150 is the full scale of the sensor. 4.096f is the Vbias
 
 #define ADC_SPS 125  // about 333Hz max in single shot mode. 860Hz in continuous mode
 

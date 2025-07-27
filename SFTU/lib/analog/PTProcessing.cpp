@@ -16,7 +16,7 @@ void PTProcessing::tareVolts(float voltage) {
 }
 
 // use commander to call this function
-// void PTProcessing::calibrate(float objectMass, float voltage) {
+// void PTProcessing::calibrate(float current_presure, float voltage) {
 //   ESP_LOGI("PTProcessing", "rawVoltage: %.3f V, Voffset: %.3f V", voltage, m_Voffset);
 
 //   float taredVoltage = voltage - m_Voffset;
