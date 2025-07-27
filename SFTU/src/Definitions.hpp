@@ -60,11 +60,10 @@
 // The Pressure transducers i've tested seem to be uni-directional Vout = 0.1*Vbias at atmospheric pressure,
 // So we can assume a sensitivity given the range is from 0.1*Vbias to 0.9*Vbias, and 0-X PSI.
 
-//  Differential amp is designed to have a gain of 250 V/V. If the above output range is true, then we need to
-// reduce this to 1V/V. Maybe we can make a daughter board to go directly to ADC.
+#define EXCITATION_BIAS 4.096f
 
-#define PT_1600_SCALE 0.8 * 1600.0f / 4.096f  // Pressure transducer scale factor. 1600 PSI <>
-#define PT_150_SCALE 0.8 * 150.0f / 4.096f    // 0.8 is the span (0.1 to 0.9), 150 is the full scale of the sensor. 4.096f is the Vbias
+#define PT_1600_SCALE 1600.0f / (0.8 * 4.096f)  // Pressure transducer scale factor. 1600 PSI <>
+#define PT_150_SCALE 150.0f / (0.8 * 4.096f)    // 0.8 is the span (0.1 to 0.9), 150 is the full scale of the sensor. 4.096f is the Vbias
 
 #define ADC_SPS 125  // about 333Hz max in single shot mode. 860Hz in continuous mode
 

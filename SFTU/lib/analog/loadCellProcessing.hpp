@@ -1,9 +1,9 @@
 #pragma once
 #include <Arduino.h>
 
-class ADCprocessing {
+class loadCellProcessing {
  public:
-  ADCprocessing();
+  loadCellProcessing();
   float processVtoN(float voltage, float units_per_V = -1.0f);
   void tareVolts(float voltage);
   void calibrate(float objectMass, float voltage);

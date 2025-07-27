@@ -17,11 +17,12 @@
 #include "freertos/task.h"
 
 #ifdef SFTU
-#include "ADCprocessing.hpp"
 #include "BattMonitor.hpp"
+#include "PTProcessing.hpp"
 #include "SD_Talker.hpp"
 #include "actuation.hpp"
 #include "esp_task_wdt.h"
+#include "loadCellProcessing.hpp"
 
 #else
 #include "saveFlash.hpp"
@@ -71,7 +72,8 @@ class Control {
   SD_Talker *m_sdTalker;
   Display *m_display;
   BattMonitor *m_battMonitor;
-  ADCprocessing *m_adcProcessing;
+  loadCellProcessing *m_loadCellProcessing;
+  PTProcessing *m_ptProcessing;
 
 #ifdef SFTU
   Actuation *m_actuation;

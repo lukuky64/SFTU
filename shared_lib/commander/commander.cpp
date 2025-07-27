@@ -1,13 +1,13 @@
 #include "commander.hpp"
 
 #ifdef SFTU
-Commander::Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, ADCprocessing *adcProcessing) {
+Commander::Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, loadCellProcessing *loadCellProcessing) {
   memset(m_command, 0, sizeof(m_command));
   m_serialCom = serialCom;
   m_loraCom = loraCom;
   m_actuation = actuation;
   m_adcADS = adcADS;
-  m_adcProcessing = adcProcessing;
+  m_loadCellProcessing = loadCellProcessing;
   ESP_LOGD(TAG, "Commander initialised");
 }
 #else
@@ -161,7 +161,7 @@ void Commander::handle_update_bandwidthKHz() {
 //   // TODO: We need to select the MUX
 //   float averageVoltage = m_adcADS->getAverageVolt(100, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // Read average voltage from ADC
 
-//   m_adcProcessing->calibrate(objectMass, averageVoltage);
+//   m_loadCellProcessing->calibrate(objectMass, averageVoltage);
 // }
 
 // #else
@@ -288,10 +288,10 @@ void Commander::handle_calibrateCell(float massKg) {
   // TODO: We need to select the MUX
   ESP_LOGD(TAG, "Calibrate cell command executing");
   float averageVoltage = m_adcADS->getAverageVolt(100, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // Read average voltage from ADC
-  m_adcProcessing->calibrate(massKg, averageVoltage);                                     // param is the object mass
+  m_loadCellProcessing->calibrate(massKg, averageVoltage);                                // param is the object mass
 }
 
-void Commander::handle_setCellScale(float scale) { m_adcProcessing->setScale(scale); }
+void Commander::handle_setCellScale(float scale) { m_loadCellProcessing->setScale(scale); }
 
 void Commander::handle_set_OUTPUT(float indexAndState) {
   // value before decimal is the index, after decimal is the state

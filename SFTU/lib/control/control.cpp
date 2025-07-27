@@ -12,7 +12,8 @@ Control::Control() {
   m_adcADS_12 = new adcADS(*m_ANALOG_I2C_BUS);
   m_adcADS_34 = new adcADS(*m_ANALOG_I2C_BUS);
 
-  m_adcProcessing = new ADCprocessing();
+  m_loadCellProcessing = new loadCellProcessing();
+  m_ptProcessing = new PTProcessing();
 
   m_sdTalker = new SD_Talker();
 
@@ -20,7 +21,7 @@ Control::Control() {
 
 #ifdef SFTU
   m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L, PCA6408A_SLAVE_ADDRESS_H, *m_I2C_BUS);
-  m_commander = new Commander(m_serialCom, m_LoRaCom, m_actuation, m_adcADS_12, m_adcProcessing);  // TODO: Probably want control of both ADCs in Commander
+  m_commander = new Commander(m_serialCom, m_LoRaCom, m_actuation, m_adcADS_12, m_loadCellProcessing);  // TODO: Probably want control of both ADCs in Commander
 
   m_display = new Display();
 #else
@@ -175,8 +176,11 @@ void Control::analogTask() {
   m_adcADS_12->getAverageVolt(100, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // throw away some data first
   float averageSample = m_adcADS_12->getAverageVolt(200, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
 
-  m_adcProcessing->setScale(CELL_SCALE);
-  m_adcProcessing->tareVolts(averageSample);
+  m_loadCellProcessing->setScale(CELL_SCALE);
+  m_loadCellProcessing->tareVolts(averageSample);
+
+  m_ptProcessing->setScale(PT_1600_SCALE);             // no need to tare for now
+  m_ptProcessing->tareVolts(EXCITATION_BIAS / 10.0f);  // 0 PSI at 1/10 of the excitation voltage
 
   uint64_t queueTime = 0;
   uint64_t lastMicros = 0;
@@ -204,13 +208,13 @@ void Control::queueSample() {
   static uint64_t startMicros = micros();
   sample.timestamp = micros() - startMicros;
 
-  sample.value1 = m_adcProcessing->processVtoN(m_adcADS_12->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_0_1));
-  sample.value2 = m_adcProcessing->processVtoN(m_adcADS_12->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_2_3));
+  sample.value1 = m_loadCellProcessing->processVtoN(m_adcADS_12->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_0_1));
+  sample.value2 = m_loadCellProcessing->processVtoN(m_adcADS_12->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_2_3));
 
-  sample.value3 = m_adcProcessing->processVtoN(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_0_1));
+  sample.value3 = m_ptProcessing->processVtoPSI(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_SINGLE_2), PT_1600_SCALE);
 
   // TODO: create a new adcProcessor, need to tare it inidividually
-  sample.value4 = m_adcProcessing->processVtoN(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_SINGLE_2), PT_150_SCALE);
+  sample.value4 = m_ptProcessing->processVtoPSI(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_SINGLE_3), PT_1600_SCALE);
 
   setLatestSample(sample);
 
