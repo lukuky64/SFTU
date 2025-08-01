@@ -287,7 +287,8 @@ void Commander::handle_update_bandwidthKHz(float bw) { m_loraCom->setBandwidth(b
 
 #ifdef SFTU
 void Commander::handle_calibrateCell(float massKg) {
-  // TODO: We need to select the MUX
+  // TODO: FIX
+  // FIXME: All this needs to be fixed up
   ESP_LOGD(TAG, "Calibrate cell command executing");
   float averageVoltage = m_adcADS->getAverageVolt(100, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // Read average voltage from ADC
 

@@ -26,39 +26,57 @@ void Display::begin() {
   // drawPageBar(false, false, false, false, false, 0, true);
 }
 
-void Display::drawForce(float input1, float input2, float input3, float input4, bool updateDisp) {
-  // Use larger font and display 4 inputs in a vertical column
-  uint8_t fontSize = 2;
+void Display::drawData(float input1, float input2, float input3, float input4, float input5, float input6, float input7, float input8, bool updateDisp) {
+  // Display 8 inputs in two columns of 4 rows each, smaller font
+  uint8_t fontSize = 1;
   uint8_t numDigits = 5;  // e.g., "-12345"
-  int16_t startX = 4;
-  int16_t topMargin = 2;     // minimal margin at top
-  int16_t bottomMargin = 2;  // minimal margin at bottom
+  int16_t startX_left = 2;
+  int16_t startX_right = SCREEN_WIDTH / 2 + 2;
+  int16_t topMargin = 2;
+  int16_t bottomMargin = 2;
 
   display.clearDisplay();
   display.setTextSize(fontSize);
   display.setTextColor(SSD1306_WHITE);
 
-  int16_t inputs[4];
+  int16_t inputs[8];
   inputs[0] = static_cast<int16_t>(round(constrain(input1, -99'999, 99'999)));
   inputs[1] = static_cast<int16_t>(round(constrain(input2, -99'999, 99'999)));
   inputs[2] = static_cast<int16_t>(round(constrain(input3, -99'999, 99'999)));
   inputs[3] = static_cast<int16_t>(round(constrain(input4, -99'999, 99'999)));
+  inputs[4] = static_cast<int16_t>(round(constrain(input5, -99'999, 99'999)));
+  inputs[5] = static_cast<int16_t>(round(constrain(input6, -99'999, 99'999)));
+  inputs[6] = static_cast<int16_t>(round(constrain(input7, -99'999, 99'999)));
+  inputs[7] = static_cast<int16_t>(round(constrain(input8, -99'999, 99'999)));
 
   // Use full display height
   int16_t availableHeight = SCREEN_HEIGHT - topMargin - bottomMargin;
   int16_t spacing = availableHeight / 4;
 
   for (uint8_t i = 0; i < 4; ++i) {
-    int16_t x = startX;
+    // Left column: I1-I4
+    int16_t x_left = startX_left;
     int16_t y = topMargin + i * spacing;
-    display.setCursor(x, y);
-    char buf[8];
-    sprintf(buf, "%05d", abs(inputs[i]));
+    display.setCursor(x_left, y);
+    char bufL[8];
+    sprintf(bufL, "%05d", abs(inputs[i]));
     display.print("I");
     display.print(i + 1);
     display.print("=");
     display.print(inputs[i] < 0 ? "-" : "+");
-    display.print(buf);
+    display.print(bufL);
+    display.print("U");
+
+    // Right column: I5-I8
+    int16_t x_right = startX_right;
+    display.setCursor(x_right, y);
+    char bufR[8];
+    sprintf(bufR, "%05d", abs(inputs[i + 4]));
+    display.print("I");
+    display.print(i + 5);
+    display.print("=");
+    display.print(inputs[i + 4] < 0 ? "-" : "+");
+    display.print(bufR);
     display.print("U");
   }
 
@@ -97,7 +115,7 @@ void Display::drawForce(float forceInput, bool updateDisp) {
 void Display::updateForce(float forceInput) { m_force = forceInput; }
 
 void Display::drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready, float battPer, bool forceUpdateAll) {
-  drawForce(m_force, false);
+  drawData(m_force, false);
   // Update Cell icon if changed
   if ((cell != m_mainPageStatus.cell) || forceUpdateAll) {
     display.fillRect(0, 0, 16, 16, SSD1306_BLACK);

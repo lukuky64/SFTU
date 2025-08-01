@@ -119,35 +119,34 @@ bool SD_Talker::createNestedDirectories(String prefix) {
 
   bool success = true;
 
-  // Count how many slashes are in the prefix
-  uint8_t count = 0;
-  for (int i = 0; i < prefix.length(); i++) {
-    if (prefix.charAt(i) == '/') {
-      count++;
-    }
+  // Remove leading slash for consistent path building
+  String cleanPrefix = prefix;
+  if (cleanPrefix.startsWith("/")) {
+    cleanPrefix = cleanPrefix.substring(1);
   }
 
-  if (count > 0) {
-    int start = 0;
-    if (prefix.charAt(0) == '/') {
-      start = 1;  // Skip the leading slash
+  int lastPos = 0;
+  int pos = cleanPrefix.indexOf('/');
+  String currentPath = "";
+
+  while (pos != -1) {
+    currentPath += "/" + cleanPrefix.substring(lastPos, pos);
+    if (!SD.exists(currentPath)) {
+      if (!SD.mkdir(currentPath)) {
+        success = false;
+        break;
+      }
     }
+    lastPos = pos + 1;
+    pos = cleanPrefix.indexOf('/', lastPos);
+  }
 
-    // Start from 'start' instead of 0 when taking the substring
-    int pos = prefix.indexOf('/', start);
-
-    {
-      while (pos != -1) {
-        String folder = prefix.substring(start, pos);
-
-        if (!SD.exists(folder)) {
-          if (!SD.mkdir(folder)) {
-            success = false;
-            break;
-          } else {
-          }
-        }
-        pos = prefix.indexOf('/', pos + 1);
+  // Create the final directory if not already created and not empty
+  if (success && lastPos < cleanPrefix.length()) {
+    currentPath += "/" + cleanPrefix.substring(lastPos);
+    if (!SD.exists(currentPath)) {
+      if (!SD.mkdir(currentPath)) {
+        success = false;
       }
     }
   }
@@ -172,8 +171,21 @@ bool SD_Talker::createFile(String StartMsg, String prefix) {
       return false;
     }
 
-    // first lets make sure we have the correct folder
-    createNestedDirectories(prefix);
+    // Only create directories for the parent folder, not the full prefix
+    String cleanPrefix = prefix;
+    if (cleanPrefix.endsWith("/")) {
+      cleanPrefix = cleanPrefix.substring(0, cleanPrefix.length() - 1);
+    }
+    int lastSlash = cleanPrefix.lastIndexOf('/');
+    String dir;
+    if (lastSlash == -1) {
+      dir = "";
+    } else {
+      dir = cleanPrefix.substring(0, lastSlash);
+    }
+    if (dir.length() > 0) {
+      createNestedDirectories(dir);
+    }
 
     fileName = createUniqueLogFile(prefix);
 
@@ -214,18 +226,34 @@ bool SD_Talker::writeBuffer(const char *buffer, size_t bufferIndex) {
 }
 
 String SD_Talker::createUniqueLogFile(String prefix) {
-  String uniqueFileName;
+  // Remove trailing slash if present
+  String cleanPrefix = prefix;
+  if (cleanPrefix.endsWith("/")) {
+    cleanPrefix = cleanPrefix.substring(0, cleanPrefix.length() - 1);
+  }
+  // Find last slash to separate directory and base name
+  int lastSlash = cleanPrefix.lastIndexOf('/');
+  String dir, base;
+  if (lastSlash == -1) {
+    dir = "";
+    base = cleanPrefix;
+  } else {
+    dir = cleanPrefix.substring(0, lastSlash);
+    base = cleanPrefix.substring(lastSlash + 1);
+  }
   uint32_t currentLogIndex = 0;
   const uint32_t maxIterations = 1000;
-
-  // Generate a unique file name
+  String uniqueFileName;
   do {
     if (currentLogIndex >= maxIterations) {
       return "";
     }
-    uniqueFileName = String(prefix) + "_" + String(currentLogIndex++) + ".csv";
-  } while (SD.exists(uniqueFileName.c_str()));  // Check if the file already exists
-
+    if (dir.length() > 0) {
+      uniqueFileName = dir + "/" + base + "_" + String(currentLogIndex++) + ".csv";
+    } else {
+      uniqueFileName = base + "_" + String(currentLogIndex++) + ".csv";
+    }
+  } while (SD.exists(uniqueFileName.c_str()));
   return uniqueFileName;
 }
 
@@ -240,20 +268,20 @@ bool SD_Talker::writeBlockToSD(const SampleWithTimestamp *block, size_t count) {
     return false;
   }
 
-  // Write each sample as CSV: timestamp,value
+  // Buffer the entire block as a String and write in one go
+  String buffer;
+  buffer.reserve(count * 120);  // Estimate, adjust as needed
   for (size_t i = 0; i < count; ++i) {
-    dataFile.print(block[i].timestamp);
-    dataFile.print(",");
-    dataFile.print(block[i].value1, 6);
-    dataFile.print(",");
-    dataFile.print(block[i].value2, 6);
-    dataFile.print(",");
-    dataFile.print(block[i].value3, 6);
-    dataFile.print(",");
-    dataFile.print(block[i].value4, 6);
-    dataFile.print('\n');
+    char line[128];
+    snprintf(line, sizeof(line), "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", (unsigned long long)block[i].timestamp, block[i].value1, block[i].value2, block[i].value3, block[i].value4, block[i].value5, block[i].value6, block[i].value7, block[i].value8);
+    buffer += line;
   }
+  size_t bytesWritten = dataFile.print(buffer);
   dataFile.flush();
+  if (bytesWritten != buffer.length()) {
+    ESP_LOGE("SD_Talker", "Failed to write all bytes to SD card (block write).");
+    return false;
+  }
   return true;
 }
 
@@ -262,8 +290,8 @@ bool SD_Talker::startNewLog(String filePrefix) {
     return false;
   }
 
-  // TODO: This should not be here
-  String startMsg = "Time(us), Force1(N), Force2(N), Force3(N), Force4(N)";
+  // TODO: Set these with config file
+  String startMsg = "Time(us), Data1(U), Data2(U), Data3(U), Data4(U), Data5(U), Data6(U), Data7(U), Data8(U)";
 
   if (createFile(startMsg, filePrefix)) {
     ESP_LOGI(TAG, "Created file on SD card!");

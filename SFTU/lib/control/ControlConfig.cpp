@@ -19,7 +19,7 @@ bool ControlConfig::loadFromSD(SD_Talker& sd, const char* path) {
   if (!sd.checkFileOpen()) {
     File file = SD.open(path, FILE_READ);
     if (!file) return false;
-    StaticJsonDocument<2048> doc;
+    JsonDocument doc;
     DeserializationError err = deserializeJson(doc, file);
     file.close();
     if (err) return false;
@@ -36,9 +36,9 @@ bool ControlConfig::loadFromSD(SD_Talker& sd, const char* path) {
       adc1_channels[i].scale_factor = chObj["scale_factor"] | 1.0f;
       adc1_channels[i].tare_bias.auto_tare = false;
       adc1_channels[i].tare_bias.value = 0.0f;
-      if (chObj["tare_bias"].containsKey("auto")) {
+      if (chObj["tare_bias"]["auto"].is<bool>()) {
         adc1_channels[i].tare_bias.auto_tare = chObj["tare_bias"]["auto"];
-      } else if (chObj["tare_bias"].containsKey("value")) {
+      } else if (chObj["tare_bias"]["value"].is<float>()) {
         adc1_channels[i].tare_bias.value = chObj["tare_bias"]["value"];
       }
       ++i;
@@ -56,9 +56,9 @@ bool ControlConfig::loadFromSD(SD_Talker& sd, const char* path) {
       adc2_channels[i].scale_factor = chObj["scale_factor"] | 1.0f;
       adc2_channels[i].tare_bias.auto_tare = false;
       adc2_channels[i].tare_bias.value = 0.0f;
-      if (chObj["tare_bias"].containsKey("auto")) {
+      if (chObj["tare_bias"]["auto"].is<bool>()) {
         adc2_channels[i].tare_bias.auto_tare = chObj["tare_bias"]["auto"];
-      } else if (chObj["tare_bias"].containsKey("value")) {
+      } else if (chObj["tare_bias"]["value"].is<float>()) {
         adc2_channels[i].tare_bias.value = chObj["tare_bias"]["value"];
       }
       ++i;
@@ -76,11 +76,11 @@ bool ControlConfig::saveToSD(SD_Talker& sd, const char* path) const {
   if (!sd.checkStatus()) return false;
   File file = SD.open(path, FILE_WRITE);
   if (!file) return false;
-  StaticJsonDocument<2048> doc;
+  JsonDocument doc;
   // adc1
   JsonArray chArr1 = doc["adc1"]["channels"].to<JsonArray>();
   for (int i = 0; i < 4; ++i) {
-    JsonObject chObj = chArr1.createNestedObject();
+    JsonObject chObj = chArr1.add<JsonObject>();
     chObj["mode"] = adc1_channels[i].mode.c_str();
     JsonArray inArr = chObj["inputs"].to<JsonArray>();
     for (int v : adc1_channels[i].inputs) inArr.add(v);
@@ -95,7 +95,7 @@ bool ControlConfig::saveToSD(SD_Talker& sd, const char* path) const {
   // adc2
   JsonArray chArr2 = doc["adc2"]["channels"].to<JsonArray>();
   for (int i = 0; i < 4; ++i) {
-    JsonObject chObj = chArr2.createNestedObject();
+    JsonObject chObj = chArr2.add<JsonObject>();
     chObj["mode"] = adc2_channels[i].mode.c_str();
     JsonArray inArr = chObj["inputs"].to<JsonArray>();
     for (int v : adc2_channels[i].inputs) inArr.add(v);

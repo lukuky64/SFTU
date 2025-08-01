@@ -174,7 +174,7 @@ void Control::displayTask() {
     // }
     SampleWithTimestamp sample;
     getLatestSample(sample);  // Get the latest sample from the queue
-    m_display->drawForce(sample.value1, sample.value2, sample.value3, sample.value4, true);
+    m_display->drawData(sample.value1, sample.value2, sample.value3, sample.value4, sample.value5, sample.value6, sample.value7, sample.value8, true);
     vTaskDelay(pdMS_TO_TICKS(40));
   }
 }
@@ -203,6 +203,9 @@ void Control::analogTask() {
     if (!m_pauseADC) {
       lastMicros = micros();
       queueSample();
+
+      // print adc2 readings to test
+      // ESP_LOGD(TAG, "ADC2 MUX 0: %f V", m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_0_1));
     }
 
     vTaskDelay(pdMS_TO_TICKS(1));  // can't starve other tasks
@@ -259,7 +262,7 @@ void Control::sdTask() {
 
   while (true) {
     while (!m_sdTalker->checkFileOpen()) {
-      m_sdTalker->startNewLog("/log");
+      m_sdTalker->startNewLog("/Logs/log");
       vTaskDelay(pdMS_TO_TICKS(500));
     }
 
@@ -425,7 +428,7 @@ void Control::statusTask() {
     memcpy(msg.payload, &payload, sizeof(payload));
 
     String statusMsg = String("status ") + "ID:" + String(msg.senderID) + " RSSI:" + String(payload.rssi) + " battVoltage:" + String(payload.batteryVoltage) + " status:" + String(payload.status) + " IN1:" + String(payload.IN1) + " IN2:" + String(payload.IN2) + " IN3:" + String(payload.IN3) +
-                       " IN4:" + String(payload.IN4) + "\n";
+                       " IN4:" + String(payload.IN4) + " IN5:" + String(payload.IN5) + " IN6:" + String(payload.IN6) + " IN7:" + String(payload.IN7) + " IN8:" + String(payload.IN8) + "\n";
 
     // Send over serial first (this should be fast)
     m_serialCom->sendData(statusMsg.c_str());
