@@ -12,7 +12,7 @@
 #ifdef SFTU
 #include "actuation.hpp"
 #include "adcADS.hpp"
-#include "loadCellProcessing.hpp"
+#include "adcProcessor.hpp"
 #endif
 
 #define c_cmp(a, b) (strcmp(a, b) == 0)
@@ -20,7 +20,7 @@
 class Commander {
  public:
 #ifdef SFTU
-  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, loadCellProcessing *loadCellProcessing);
+  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, adcProcessor *adcProcessors[8]);
 #else
   Commander(SerialCom *serialCom, LoRaCom *loraCom);
 #endif
@@ -36,7 +36,7 @@ class Commander {
 #ifdef SFTU
   Actuation *m_actuation;
   adcADS *m_adcADS;
-  loadCellProcessing *m_loadCellProcessing;
+  adcProcessor *m_adcProcessors[8] = {nullptr};
 #endif
 
   typedef void (Commander::*Handler)();

@@ -10,6 +10,10 @@ typedef struct {
   float value2;
   float value3;
   float value4;
+  float value5;
+  float value6;
+  float value7;
+  float value8;
   uint32_t timestamp;
 } SampleWithTimestamp;
 

@@ -12,16 +12,19 @@ Control::Control() {
   m_adcADS_12 = new adcADS(*m_ANALOG_I2C_BUS);
   m_adcADS_34 = new adcADS(*m_ANALOG_I2C_BUS);
 
-  m_loadCellProcessing = new loadCellProcessing();
-  m_ptProcessing = new PTProcessing();
+  // m_loadCell1 = new loadCellProcessing();
+  // m_pressTran1 = new PTProcessing();
 
   m_sdTalker = new SD_Talker();
+
+  // Example: create config object
+  m_config = new ControlConfig();
 
   m_battMonitor = new BattMonitor(VOLTAGE_SENSE, VBATT_SCALE);
 
 #ifdef SFTU
   m_actuation = new Actuation(PCA6408A_SLAVE_ADDRESS_L, PCA6408A_SLAVE_ADDRESS_H, *m_I2C_BUS);
-  m_commander = new Commander(m_serialCom, m_LoRaCom, m_actuation, m_adcADS_12, m_loadCellProcessing);  // TODO: Probably want control of both ADCs in Commander
+  m_commander = new Commander(m_serialCom, m_LoRaCom, m_actuation, m_adcADS_12, m_adcProcessors);  // TODO: Probably want control of both ADCs in Commander
 
   m_display = new Display();
 #else
@@ -46,9 +49,18 @@ void Control::setup() {
 
   m_actuation->init();
   m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
-  m_adcADS_12->init(ADS0_ADDR);                     // Use ADS0 address
-  m_adcADS_34->init(ADS1_ADDR);                     // Use ADS1 address
-  m_battMonitor->init();                            // Initialize battery monitor
+
+  // Example: Load config from SD card
+  if (!m_config->loadFromSD(*m_sdTalker, "/config.json")) {
+    ESP_LOGW(TAG, "Failed to load config from SD, using defaults");
+    // Optionally save defaults if file doesn't exist
+    m_config->saveToSD(*m_sdTalker, "/config.json");
+  } else {
+    ESP_LOGI(TAG, "Loaded config from SD");
+  }
+  m_adcADS_12->init(ADS0_ADDR);  // Use ADS0 address
+  m_adcADS_34->init(ADS1_ADDR);  // Use ADS1 address
+  m_battMonitor->init();         // Initialize battery monitor
 
   m_display->init(*m_I2C_BUS);  // Initialize the display
 
@@ -78,6 +90,13 @@ void Control::setup() {
 #endif
 
   ESP_LOGI(TAG, "Control setup complete");
+
+  // Example: Access config values
+  // int input0 = m_config->adc_inputs[0];
+  // float scale0 = m_config->scale_factors[0];
+  // uint32_t freq = m_config->rf_frequency;
+  // int sps = m_config->sampling_rate;
+  // int mode = m_config->mode;
 }
 
 void Control::begin() {
@@ -161,39 +180,30 @@ void Control::displayTask() {
 }
 
 void Control::analogTask() {
-  m_adcADS_12->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // ADS1X15_REG_CONFIG_MUX_DIFF_0_1, ADS1X15_REG_CONFIG_MUX_DIFF_2_3
-  // m_adcADS_12->setDataRate(ADC_SPS);
-  // m_adcADS_12->startContinuous();
-
-  m_adcADS_34->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS, ADS1X15_REG_CONFIG_MUX_DIFF_2_3);  // ADS1X15_REG_CONFIG_MUX_DIFF_0_1, ADS1X15_REG_CONFIG_MUX_DIFF_2_3
-  // m_adcADS_34->setDataRate(ADC_SPS);
-  // m_adcADS_34->startContinuous();
+  m_adcADS_12->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS);
+  m_adcADS_34->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS);
 
   uint64_t interval_us = (uint64_t)(1e6 / (double)ADC_SPS);
-  TickType_t interval_ticks = pdMS_TO_TICKS((uint32_t)(interval_us / 1000));
+
+  // Set up load cell processing
+  // float averageSample = m_adcADS_12->getAverageVolt(200, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
+  // m_loadCell1->tareVolts(averageSample);
+  // m_loadCell1->setScale(CELL_SCALE);
+
+  // // Tare pressure transducer processing
+  // m_pressTran1->setScale(PT_1600_SCALE);
+  // m_pressTran1->tareVolts(EXCITATION_BIAS / 10.0f);  // 0 PSI at 0.1x excitation voltage
 
   vTaskDelay(pdMS_TO_TICKS(100));
-  m_adcADS_12->getAverageVolt(100, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // throw away some data first
-  float averageSample = m_adcADS_12->getAverageVolt(200, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
+  setupADC_Config();
 
-  m_loadCellProcessing->setScale(CELL_SCALE);
-  m_loadCellProcessing->tareVolts(averageSample);
-
-  m_ptProcessing->setScale(PT_1600_SCALE);             // no need to tare for now
-  m_ptProcessing->tareVolts(EXCITATION_BIAS / 10.0f);  // 0 PSI at 1/10 of the excitation voltage
-
-  uint64_t queueTime = 0;
   uint64_t lastMicros = 0;
 
   while (true) {
     if (!m_pauseADC) {
       lastMicros = micros();
       queueSample();
-      // queueTime = micros() - lastMicros;
-      // ESP_LOGD(TAG, "Time for queue sample: %lu us", queueTime);
     }
-
-    // vTaskDelay(pdMS_TO_TICKS(interval_ticks));  // Yield to other tasks
 
     vTaskDelay(pdMS_TO_TICKS(1));  // can't starve other tasks
     while ((micros() - lastMicros) < interval_us) {
@@ -208,18 +218,27 @@ void Control::queueSample() {
   static uint64_t startMicros = micros();
   sample.timestamp = micros() - startMicros;
 
-  sample.value1 = m_loadCellProcessing->processVtoN(m_adcADS_12->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_0_1));
-  sample.value2 = m_loadCellProcessing->processVtoN(m_adcADS_12->readNewVolt(ADS1X15_REG_CONFIG_MUX_DIFF_2_3));
+  adcADS *adcs[2] = {m_adcADS_12, m_adcADS_34};
+  std::array<std::array<ChannelConfig, 4> *, 2> configs = {&m_config->adc1_channels, &m_config->adc2_channels};
 
-  sample.value3 = m_ptProcessing->processVtoPSI(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_SINGLE_2), PT_1600_SCALE);
+  float *sampleValues[8] = {&sample.value1, &sample.value2, &sample.value3, &sample.value4, &sample.value5, &sample.value6, &sample.value7, &sample.value8};
 
-  // TODO: create a new adcProcessor, need to tare it inidividually
-  sample.value4 = m_ptProcessing->processVtoPSI(m_adcADS_34->readNewVolt(ADS1X15_REG_CONFIG_MUX_SINGLE_3), PT_1600_SCALE);
+  for (int adcIdx = 0; adcIdx < 2; ++adcIdx) {
+    for (int ch = 0; ch < 4; ++ch) {
+      int idx = adcIdx * 4 + ch;
+      ChannelConfig &cfg = (*configs[adcIdx])[ch];
+      if (cfg.mux != -1) {
+        float raw = adcs[adcIdx]->readNewVolt(cfg.mux);
+        *sampleValues[idx] = m_adcProcessors[idx]->processVtoUnits(raw);
+      } else {
+        *sampleValues[idx] = 0.0f;
+      }
+    }
+  }
 
   setLatestSample(sample);
 
   if (xQueueSend(m_adcQueue, &sample, 0) != pdPASS) {
-    // Queue is full, remove oldest and try again
     SampleWithTimestamp dummy;
     xQueueReceive(m_adcQueue, &dummy, 0);
     xQueueSend(m_adcQueue, &sample, 0);
@@ -398,16 +417,10 @@ void Control::statusTask() {
     payload.IN2 = sample.value2;
     payload.IN3 = sample.value3;
     payload.IN4 = sample.value4;
-
-    // if (m_adcQueue != nullptr) {
-    // Get the latest sample from the queue
-    // if (xQueuePeek(m_adcQueue, &sample, pdMS_TO_TICKS(50))) {
-    //   payload.IN1 = sample.value1;
-    //   payload.IN2 = sample.value2;
-    //   payload.IN3 = sample.value3;
-    //   payload.IN4 = sample.value4;
-    // }
-    // }
+    payload.IN5 = sample.value5;
+    payload.IN6 = sample.value6;
+    payload.IN7 = sample.value7;
+    payload.IN8 = sample.value8;
 
     memcpy(msg.payload, &payload, sizeof(payload));
 
@@ -426,56 +439,6 @@ void Control::statusTask() {
     vTaskDelay(pdMS_TO_TICKS(status_Interval));
   }
 }
-
-// void Control::interpretMessage(const char *buffer, bool relayMsgLoRa)
-// {
-//   m_commander->setCommand(buffer); // Set the command in the commander
-//   char *token = m_commander->readAndRemove();
-
-//   if (c_cmp(token, "command"))
-//   {
-//     if (relayMsgLoRa)
-//     {
-//       // send to other devices to sync parameters
-//       while (m_LoRaCom->checkRx())
-//         vTaskDelay(pdMS_TO_TICKS(1));
-//       m_LoRaCom->sendMessage(buffer, 2000);
-//     }
-//     // should probably wait for a success reply before changing THIS device
-//     ESP_LOGD(TAG, "Processing command: %s", buffer);
-//     m_commander->checkCommand();
-//   }
-//   else if (c_cmp(token, "data"))
-//   {
-//     processData(buffer);
-//   }
-//   else if (c_cmp(token, "status"))
-//   {
-//     processData(buffer);
-//   }
-//   else if (c_cmp(token, "help"))
-//   {
-//     ESP_LOGI(TAG,
-//              "Message format: <type> <data1> <data2> ...\n"
-//              "Valid types:\n"
-//              "  - command: for device control\n"
-//              "  - data: for data transmission\n"
-//              "  - message: for standard messages\n"
-//              "  - flash: to print and auto erase logs\n"
-//              "  - status: for device status\n"
-//              "  - help: for displaying help information");
-//   }
-
-// #ifdef SFTU
-// #else
-//   else if (c_cmp(token, "flash"))
-//   {
-//     m_saveFlash->readFile();
-//     m_saveFlash->removeFile(); // Update the flash storage
-//     m_saveFlash->begin();      // Reinitialize the flash storage
-//   }
-// #endif
-// }
 
 void Control::processData(const char *buffer) {
   ESP_LOGD(TAG, "Processing data");
@@ -518,4 +481,42 @@ void Control::getLatestSample(SampleWithTimestamp &sample) {
   } else {
     ESP_LOGW(TAG, "Failed to acquire mutex for latest sample retrieval");
   }
+}
+
+void Control::setupADC_Channels(adcADS *adc, std::array<ChannelConfig, 4> &channels, int processorOffset) {
+  for (int i = 0; i < 4; ++i) {
+    ChannelConfig &ch = channels[i];
+    m_adcProcessors[i + processorOffset] = new adcProcessor();
+    m_adcProcessors[i + processorOffset]->setScale(ch.scale_factor);
+
+    ch.mux = -1;
+    if (ch.mode == "differential") {
+      if (ch.inputs == std::vector<int>{0, 1})
+        ch.mux = ADS1X15_REG_CONFIG_MUX_DIFF_0_1;
+      else if (ch.inputs == std::vector<int>{2, 3})
+        ch.mux = ADS1X15_REG_CONFIG_MUX_DIFF_2_3;
+    } else if (ch.mode == "single_ended" && ch.inputs.size() == 1) {
+      if (ch.inputs[0] == 0)
+        ch.mux = ADS1X15_REG_CONFIG_MUX_SINGLE_0;
+      else if (ch.inputs[0] == 1)
+        ch.mux = ADS1X15_REG_CONFIG_MUX_SINGLE_1;
+      else if (ch.inputs[0] == 2)
+        ch.mux = ADS1X15_REG_CONFIG_MUX_SINGLE_2;
+      else if (ch.inputs[0] == 3)
+        ch.mux = ADS1X15_REG_CONFIG_MUX_SINGLE_3;
+    }
+
+    float tareValue = 0.0f;
+    if (ch.tare_bias.auto_tare && ch.mux != -1) {
+      tareValue = adc->getAverageVolt(200, ch.mux);
+    } else {
+      tareValue = ch.tare_bias.value;
+    }
+    m_adcProcessors[i + processorOffset]->tareVolts(tareValue);
+  }
+}
+
+void Control::setupADC_Config() {
+  setupADC_Channels(m_adcADS_12, m_config->adc1_channels, 0);
+  setupADC_Channels(m_adcADS_34, m_config->adc2_channels, 4);
 }

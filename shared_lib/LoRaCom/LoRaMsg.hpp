@@ -27,6 +27,10 @@ struct StatusPayload {
   float IN2;
   float IN3;
   float IN4;
+  float IN5;
+  float IN6;
+  float IN7;
+  float IN8;
 };
 
 struct CommandPayload {

@@ -1,13 +1,15 @@
 #include "commander.hpp"
 
 #ifdef SFTU
-Commander::Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, loadCellProcessing *loadCellProcessing) {
+Commander::Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, adcProcessor *adcProcessors[8]) {
   memset(m_command, 0, sizeof(m_command));
   m_serialCom = serialCom;
   m_loraCom = loraCom;
   m_actuation = actuation;
   m_adcADS = adcADS;
-  m_loadCellProcessing = loadCellProcessing;
+  for (int i = 0; i < 8; ++i) {
+    m_adcProcessors[i] = adcProcessors[i];
+  }
   ESP_LOGD(TAG, "Commander initialised");
 }
 #else
@@ -288,10 +290,12 @@ void Commander::handle_calibrateCell(float massKg) {
   // TODO: We need to select the MUX
   ESP_LOGD(TAG, "Calibrate cell command executing");
   float averageVoltage = m_adcADS->getAverageVolt(100, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // Read average voltage from ADC
-  m_loadCellProcessing->calibrate(massKg, averageVoltage);                                // param is the object mass
+
+  float force = massKg * 9.81f;                          // Convert mass to force in Newtons
+  m_adcProcessors[0]->calibrate(force, averageVoltage);  // param is the object mass
 }
 
-void Commander::handle_setCellScale(float scale) { m_loadCellProcessing->setScale(scale); }
+void Commander::handle_setCellScale(float scale) { m_adcProcessors[0]->setScale(scale); }
 
 void Commander::handle_set_OUTPUT(float indexAndState) {
   // value before decimal is the index, after decimal is the state

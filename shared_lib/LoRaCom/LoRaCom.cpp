@@ -61,7 +61,7 @@ bool LoRaCom::sendMessage(const uint8_t *data, size_t len, uint32_t timeout_ms, 
 
     // Optional: cast to LoRaMessage if logging known format
     const LoRaMessage *msg = reinterpret_cast<const LoRaMessage *>(data);
-    ESP_LOGI(TAG, "Transmitting LoRaMessage: type=%u seq=%u recID=%u len=%u", msg->type, msg->sequenceID, msg->receiverID, msg->length);
+    ESP_LOGD(TAG, "Transmitting LoRaMessage: type=%u seq=%u recID=%u len=%u", msg->type, msg->sequenceID, msg->receiverID, msg->length);
 
     while (TxMode) {
       vTaskDelay(pdMS_TO_TICKS(10));

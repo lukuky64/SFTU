@@ -1,0 +1,43 @@
+{
+  "adc1": {
+    "channels": [
+      {
+        "mode": "differential",
+        "inputs": [0, 1],
+        "scale_factor": 1494.0,
+        "tare_bias": { "auto": true }
+      },
+      {
+        "mode": "differential",
+        "inputs": [2, 3],
+        "scale_factor": 1494.0,
+        "tare_bias": { "auto": true }
+      }
+    ]
+  },
+  "adc2": {
+    "channels": [
+      {
+        "mode": "differential",
+        "inputs": [0, 1],
+        "scale_factor": 1494.0,
+        "tare_bias": { "auto": true }
+      },
+      {
+        "mode": "single_ended",
+        "inputs": [2],
+        "scale_factor": 488.28,
+        "tare_bias": { "value": 0.4096 }
+      },
+      {
+        "mode": "single_ended",
+        "inputs": [3],
+        "scale_factor": 488.28,
+        "tare_bias": { "value": 0.4096 }
+      }
+    ]
+  },
+  "rf_frequency": 915000000,
+  "sampling_rate": 125,
+  "mode": 0
+}
