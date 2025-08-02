@@ -2,12 +2,16 @@
   "adc1": {
     "channels": [
       {
+        "name": "Load Cell 1",
+        "units": "N",
         "mode": "differential",
         "inputs": [0, 1],
         "scale_factor": 1494.0,
         "tare_bias": { "auto": true }
       },
       {
+        "name": "Load Cell 2",
+        "units": "N",
         "mode": "differential",
         "inputs": [2, 3],
         "scale_factor": 1494.0,
@@ -18,18 +22,24 @@
   "adc2": {
     "channels": [
       {
+        "name": "Load Cell 3",
+        "units": "N",
         "mode": "differential",
         "inputs": [0, 1],
         "scale_factor": 1494.0,
         "tare_bias": { "auto": true }
       },
       {
+        "name": "Pressure Transducer 1",
+        "units": "psi",
         "mode": "single_ended",
         "inputs": [2],
         "scale_factor": 488.28,
         "tare_bias": { "value": 0.4096 }
       },
       {
+        "name": "Pressure Transducer 2",
+        "units": "psi",
         "mode": "single_ended",
         "inputs": [3],
         "scale_factor": 488.28,

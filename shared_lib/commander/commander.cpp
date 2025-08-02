@@ -6,6 +6,7 @@ Commander::Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuatio
   m_serialCom = serialCom;
   m_loraCom = loraCom;
   m_actuation = actuation;
+  m_outputSequencer = new outputSequencer(actuation);  // Initialize output sequencer
   m_adcADS = adcADS;
   for (int i = 0; i < 8; ++i) {
     m_adcProcessors[i] = adcProcessors[i];
@@ -236,6 +237,18 @@ void Commander::setCommand(const char *buffer) {
   }
 }
 
+bool Commander::runCommand(uint8_t commandID, const char *param) {
+  ESP_LOGD(TAG, "Running command ID: %d with param: %.2f", commandID, param);
+  switch (commandID) {
+    case CMD_SEQ:
+      handle_seq(param);
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
 bool Commander::runCommand(uint8_t commandID, float param) {
   ESP_LOGD(TAG, "Running command ID: %d with param: %.2f", commandID, param);
 
@@ -309,9 +322,57 @@ void Commander::handle_set_OUTPUT(float indexAndState) {
   m_actuation->setDigital(PCA6408A_outputPins[outputIndex], (ioState ? OUTPUT_LOW : OUTPUT_OPEN));
 }
 
+void Commander::handle_seq(const char *param) {
+  ESP_LOGD(TAG, "Sequence command executing");
+
+  // param: "create UID CH:STATE:DURATION;CH:STATE:DURATION...", "run UID", "stop UID"
+  if (!param || !*param) {
+    ESP_LOGW(TAG, "Empty sequence command param");
+    return;
+  }
+
+  // Copy param to a modifiable buffer
+  char buf[128];
+  strncpy(buf, param, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = '\0';
+
+  // Tokenize by spaces
+  char *cmd = strtok(buf, " ");
+  char *uidStr = strtok(nullptr, " ");
+  char *seqStr = strtok(nullptr, "");  // The rest (may be nullptr)
+
+  if (!cmd) {
+    ESP_LOGW(TAG, "No command in sequence param");
+    return;
+  }
+
+  uint16_t uid = 0;
+  if (uidStr) {
+    uid = static_cast<uint16_t>(atoi(uidStr));
+  }
+
+  if (strcmp(cmd, "create") == 0) {
+    if (!seqStr) {
+      ESP_LOGW(TAG, "No sequence string provided for create");
+      return;
+    }
+    m_outputSequencer->createSequence(seqStr, uid);
+    ESP_LOGI(TAG, "Created sequence UID %u: %s", uid, seqStr);
+  } else if (strcmp(cmd, "run") == 0) {
+    m_outputSequencer->startSequence(uid);
+    ESP_LOGI(TAG, "Started sequence UID %u", uid);
+  } else if (strcmp(cmd, "stop") == 0) {
+    m_outputSequencer->stopSequence();
+    ESP_LOGI(TAG, "Stopped sequence UID %u", uid);
+  } else {
+    ESP_LOGW(TAG, "Unknown sequence command: %s", cmd);
+  }
+}
+
 #else
 void Commander::handle_calibrateCell(float massKg) { return; }
 void Commander::handle_set_OUTPUT(float indexAndState) { return; }
 void Commander::handle_setCellScale(float scale) { return; }
+void Commander::handle_seq(const char *param) { return; }
 
 #endif

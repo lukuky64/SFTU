@@ -50,7 +50,8 @@ class SD_Talker {
   bool checkFileOpen();
   // New overload for value+timestamp
   bool writeBlockToSD(const SampleWithTimestamp *block, size_t count);
-  bool startNewLog(String filePrefix);
+  // bool startNewLog(String filePrefix);
+  bool startNewLog(String filePrefix, const std::vector<String> &channelNames, const std::vector<String> &channelUnits);
 
  private:
   File dataFile;

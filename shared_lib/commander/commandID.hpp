@@ -21,6 +21,8 @@ enum CommandID {
 
   CMD_HARD_RESET = 13,
 
-  CMD_SET_CELL_SCALE = 14
+  CMD_SET_CELL_SCALE = 14,
+
+  CMD_SEQ = 15,
 
 };

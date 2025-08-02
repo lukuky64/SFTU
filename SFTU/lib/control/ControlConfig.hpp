@@ -15,6 +15,8 @@ struct TareBias {
 };
 
 struct ChannelConfig {
+  std::string name;
+  std::string units;
   std::string mode;
   std::vector<int> inputs;
   float scale_factor = 1.0f;
@@ -30,20 +32,68 @@ class ControlConfig {
 
   static ChannelConfig default_adc1_channel(int i) {
     ChannelConfig ch;
-    ch.mode = (i < 2) ? "differential" : "single_ended";
-    ch.inputs = (i < 2) ? std::vector<int>{i * 2, i * 2 + 1} : std::vector<int>{i};
-    ch.scale_factor = 1.0f;
-    ch.tare_bias.auto_tare = true;
-    ch.tare_bias.value = 0.0f;
+    if (i == 0) {
+      ch.name = "Load Cell 1";
+      ch.units = "N";
+      ch.mode = "differential";
+      ch.inputs = {0, 1};
+      ch.scale_factor = 1494.0f;
+      ch.tare_bias.auto_tare = true;
+      ch.tare_bias.value = 0.0f;
+    } else if (i == 1) {
+      ch.name = "Load Cell 2";
+      ch.units = "N";
+      ch.mode = "differential";
+      ch.inputs = {2, 3};
+      ch.scale_factor = 1494.0f;
+      ch.tare_bias.auto_tare = true;
+      ch.tare_bias.value = 0.0f;
+    } else {
+      ch.name = "";
+      ch.units = "";
+      ch.mode = "unused";
+      ch.inputs = {};
+      ch.scale_factor = 1.0f;
+      ch.tare_bias.auto_tare = false;
+      ch.tare_bias.value = 0.0f;
+    }
     return ch;
   }
   static ChannelConfig default_adc2_channel(int i) {
     ChannelConfig ch;
-    ch.mode = (i == 0) ? "differential" : "single_ended";
-    ch.inputs = (i == 0) ? std::vector<int>{0, 1} : std::vector<int>{i};
-    ch.scale_factor = 1.0f;
-    ch.tare_bias.auto_tare = true;
-    ch.tare_bias.value = 0.0f;
+    if (i == 0) {
+      ch.name = "Load Cell 3";
+      ch.units = "N";
+      ch.mode = "differential";
+      ch.inputs = {0, 1};
+      ch.scale_factor = 1494.0f;
+      ch.tare_bias.auto_tare = true;
+      ch.tare_bias.value = 0.0f;
+    } else if (i == 1) {
+      ch.name = "Pressure Transducer 1";
+      ch.units = "psi";
+      ch.mode = "single_ended";
+      ch.inputs = {2};
+      ch.scale_factor = 488.28f;
+      ch.tare_bias.auto_tare = false;
+      ch.tare_bias.value = 0.4096f;
+    } else if (i == 2) {
+      ch.name = "Pressure Transducer 2";
+      ch.units = "psi";
+      ch.mode = "single_ended";
+      ch.inputs = {3};
+      ch.scale_factor = 488.28f;
+      ch.tare_bias.auto_tare = false;
+      ch.tare_bias.value = 0.4096f;
+    } else {
+      ch.name = "";
+      ch.units = "";
+      ch.mode = "unused";
+      ch.inputs = {};
+      ch.scale_factor = 1.0f;
+      ch.tare_bias.auto_tare = false;
+      ch.tare_bias.value = 0.0f;
+    }
     return ch;
   }
 
@@ -57,4 +107,6 @@ class ControlConfig {
 
   bool loadFromSD(SD_Talker& sd, const char* path);
   bool saveToSD(SD_Talker& sd, const char* path) const;
+  std::vector<std::string> getChannelNames() const;
+  std::vector<std::string> getChannelUnits() const;
 };

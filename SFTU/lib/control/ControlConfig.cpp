@@ -1,12 +1,28 @@
-
-
 #include "ControlConfig.hpp"
+
+#include <string>
+#include <vector>
+
+std::vector<std::string> ControlConfig::getChannelNames() const {
+  std::vector<std::string> names;
+  for (const auto& ch : adc1_channels) names.push_back(ch.name);
+  for (const auto& ch : adc2_channels) names.push_back(ch.name);
+  return names;
+}
+
+std::vector<std::string> ControlConfig::getChannelUnits() const {
+  std::vector<std::string> units;
+  for (const auto& ch : adc1_channels) units.push_back(ch.units);
+  for (const auto& ch : adc2_channels) units.push_back(ch.units);
+  return units;
+}
 
 #include <ArduinoJson.h>
 
 #include <string>
 
 #include "../SD_Talker/SD_Talker.hpp"
+#include "ControlConfig.hpp"
 
 ControlConfig::ControlConfig() : rf_frequency(DEFAULT_RF_FREQUENCY), sampling_rate(DEFAULT_SAMPLING_RATE), mode(DEFAULT_MODE) {
   for (int i = 0; i < 4; ++i) {
@@ -28,6 +44,8 @@ bool ControlConfig::loadFromSD(SD_Talker& sd, const char* path) {
     int i = 0;
     for (JsonObject chObj : chArr1) {
       if (i >= 4) break;
+      adc1_channels[i].name = chObj["name"] | "";
+      adc1_channels[i].units = chObj["units"] | "";
       adc1_channels[i].mode = chObj["mode"].as<const char*>();
       adc1_channels[i].inputs.clear();
       for (JsonVariant v : chObj["inputs"].as<JsonArray>()) {
@@ -48,6 +66,8 @@ bool ControlConfig::loadFromSD(SD_Talker& sd, const char* path) {
     i = 0;
     for (JsonObject chObj : chArr2) {
       if (i >= 4) break;
+      adc2_channels[i].name = chObj["name"] | "";
+      adc2_channels[i].units = chObj["units"] | "";
       adc2_channels[i].mode = chObj["mode"].as<const char*>();
       adc2_channels[i].inputs.clear();
       for (JsonVariant v : chObj["inputs"].as<JsonArray>()) {
@@ -81,6 +101,8 @@ bool ControlConfig::saveToSD(SD_Talker& sd, const char* path) const {
   JsonArray chArr1 = doc["adc1"]["channels"].to<JsonArray>();
   for (int i = 0; i < 4; ++i) {
     JsonObject chObj = chArr1.add<JsonObject>();
+    chObj["name"] = adc1_channels[i].name.c_str();
+    chObj["units"] = adc1_channels[i].units.c_str();
     chObj["mode"] = adc1_channels[i].mode.c_str();
     JsonArray inArr = chObj["inputs"].to<JsonArray>();
     for (int v : adc1_channels[i].inputs) inArr.add(v);
@@ -96,6 +118,8 @@ bool ControlConfig::saveToSD(SD_Talker& sd, const char* path) const {
   JsonArray chArr2 = doc["adc2"]["channels"].to<JsonArray>();
   for (int i = 0; i < 4; ++i) {
     JsonObject chObj = chArr2.add<JsonObject>();
+    chObj["name"] = adc2_channels[i].name.c_str();
+    chObj["units"] = adc2_channels[i].units.c_str();
     chObj["mode"] = adc2_channels[i].mode.c_str();
     JsonArray inArr = chObj["inputs"].to<JsonArray>();
     for (int v : adc2_channels[i].inputs) inArr.add(v);

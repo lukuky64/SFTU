@@ -50,14 +50,15 @@ void Control::setup() {
   m_actuation->init();
   m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
 
-  // Example: Load config from SD card
+  // Load config from SD card
   if (!m_config->loadFromSD(*m_sdTalker, "/config.json")) {
     ESP_LOGW(TAG, "Failed to load config from SD, using defaults");
-    // Optionally save defaults if file doesn't exist
+    // Save defaults if file doesn't exist
     m_config->saveToSD(*m_sdTalker, "/config.json");
   } else {
     ESP_LOGI(TAG, "Loaded config from SD");
   }
+
   m_adcADS_12->init(ADS0_ADDR);  // Use ADS0 address
   m_adcADS_34->init(ADS1_ADDR);  // Use ADS1 address
   m_battMonitor->init();         // Initialize battery monitor
@@ -260,9 +261,18 @@ void Control::sdTask() {
 
   TickType_t lastBlockTime = xTaskGetTickCount();
 
+  // Convert std::vector<std::string> to std::vector<String> for SD_Talker
+  std::vector<std::string> stdNames = m_config->getChannelNames();
+  std::vector<std::string> stdUnits = m_config->getChannelUnits();
+  std::vector<String> arduinoNames, arduinoUnits;
+  arduinoNames.reserve(stdNames.size());
+  arduinoUnits.reserve(stdUnits.size());
+  for (const auto &n : stdNames) arduinoNames.push_back(String(n.c_str()));
+  for (const auto &u : stdUnits) arduinoUnits.push_back(String(u.c_str()));
+
   while (true) {
     while (!m_sdTalker->checkFileOpen()) {
-      m_sdTalker->startNewLog("/Logs/log");
+      m_sdTalker->startNewLog("/Logs/log", arduinoNames, arduinoUnits);
       vTaskDelay(pdMS_TO_TICKS(500));
     }
 
@@ -342,10 +352,16 @@ void Control::serialDataTask() {
           while (!m_LoRaCom->isAcked(commandSeqID)) vTaskDelay(pdMS_TO_TICKS(10));
         }
 
-        // ESP_LOGI(TAG, "LINE 300");
+        // ESP_LOGI(TAG, "LINE 355");
 
         m_pauseADC = true;
-        m_commander->runCommand(payload.commandID, payload.param);
+        if (payload.paramType == 0) {
+          // Float parameter
+          m_commander->runCommand(payload.commandID, payload.paramFloat);
+        } else {
+          // String parameter
+          m_commander->runCommand(payload.commandID, payload.paramString);
+        }
         m_pauseADC = false;
         // // Wait for ACK for this sequenceID
         // while (m_LoRaCom->isQueued(msg.sequenceID))
@@ -380,7 +396,13 @@ void Control::loRaDataTask() {
         CommandPayload payload;
         memcpy(&payload, msg.payload, sizeof(payload));
         m_pauseADC = true;
-        m_commander->runCommand(payload.commandID, payload.param);
+        if (payload.paramType == 0) {
+          // Float parameter
+          m_commander->runCommand(payload.commandID, payload.paramFloat);
+        } else {
+          // String parameter
+          m_commander->runCommand(payload.commandID, payload.paramString);
+        }
         m_pauseADC = false;
       } else if (msg.type == TYPE_STATUS) {
         StatusPayload payload;
@@ -407,10 +429,34 @@ void Control::statusTask() {
   msg.type = TYPE_STATUS;
   msg.length = sizeof(StatusPayload);
 
+  // Cache channel names for efficiency (static, only initialized once)
+  static bool namesInitialized = false;
+  static char channelNames[8][24];  // 24 chars per name (adjust as needed)
+  if (!namesInitialized) {
+    for (int i = 0; i < 4; ++i) {
+      const auto &ch = m_config->adc1_channels[i];
+      if (!ch.name.empty()) {
+        strncpy(channelNames[i], ch.name.c_str(), sizeof(channelNames[i]) - 1);
+        channelNames[i][sizeof(channelNames[i]) - 1] = '\0';
+      } else {
+        snprintf(channelNames[i], sizeof(channelNames[i]), "IN%d", i + 1);
+      }
+    }
+    for (int i = 0; i < 4; ++i) {
+      const auto &ch = m_config->adc2_channels[i];
+      if (!ch.name.empty()) {
+        strncpy(channelNames[i + 4], ch.name.c_str(), sizeof(channelNames[i + 4]) - 1);
+        channelNames[i + 4][sizeof(channelNames[i + 4]) - 1] = '\0';
+      } else {
+        snprintf(channelNames[i + 4], sizeof(channelNames[i + 4]), "IN%d", i + 5);
+      }
+    }
+    namesInitialized = true;
+  }
+
   while (true) {
     StatusPayload payload;
-
-    payload.rssi = static_cast<int8_t>(m_LoRaCom->getRssi());  // value from -128 to 127, this should be fine
+    payload.rssi = static_cast<int8_t>(m_LoRaCom->getRssi());
     payload.batteryVoltage = m_battMonitor->getScaledVoltage(/*num_readings*/ 20);
     payload.status = deviceStatus::STATUS_OK;
 
@@ -427,18 +473,27 @@ void Control::statusTask() {
 
     memcpy(msg.payload, &payload, sizeof(payload));
 
-    String statusMsg = String("status ") + "ID:" + String(msg.senderID) + " RSSI:" + String(payload.rssi) + " battVoltage:" + String(payload.batteryVoltage) + " status:" + String(payload.status) + " IN1:" + String(payload.IN1) + " IN2:" + String(payload.IN2) + " IN3:" + String(payload.IN3) +
-                       " IN4:" + String(payload.IN4) + " IN5:" + String(payload.IN5) + " IN6:" + String(payload.IN6) + " IN7:" + String(payload.IN7) + " IN8:" + String(payload.IN8) + "\n";
+    // Use a preallocated buffer for the status message
+    char statusMsg[256];
+    int len = snprintf(statusMsg, sizeof(statusMsg), "status ID:%d RSSI:%d battVoltage:%.3f status:%d", msg.senderID, payload.rssi, payload.batteryVoltage, payload.status);
+    float values[8] = {payload.IN1, payload.IN2, payload.IN3, payload.IN4, payload.IN5, payload.IN6, payload.IN7, payload.IN8};
+    for (int i = 0; i < 8; ++i) {
+      // Append each channel name and value
+      len += snprintf(statusMsg + len, sizeof(statusMsg) - len, " %s:%.2f", channelNames[i], values[i]);
+      if (len >= (int)sizeof(statusMsg) - 1) break;
+    }
+    // Ensure newline and null-termination
+    if (len < (int)sizeof(statusMsg) - 2) {
+      statusMsg[len++] = '\n';
+      statusMsg[len] = '\0';
+    } else {
+      statusMsg[sizeof(statusMsg) - 2] = '\n';
+      statusMsg[sizeof(statusMsg) - 1] = '\0';
+    }
 
-    // Send over serial first (this should be fast)
-    m_serialCom->sendData(statusMsg.c_str());
-
-    // Try LoRa transmission with timeout protection
+    m_serialCom->sendData(statusMsg);
 
     if (m_LoRaCom->enqueueMessage(msg, false)) ESP_LOGD(TAG, "Adding to transmit queue...");
-
-    // checkTaskStack();
-
     vTaskDelay(pdMS_TO_TICKS(status_Interval));
   }
 }

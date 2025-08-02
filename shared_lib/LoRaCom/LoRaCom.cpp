@@ -338,11 +338,22 @@ bool LoRaCom::stringToCommandPayload(CommandPayload &payload, const char *buffer
   payload.commandID = strtoul(buffer, &endPtr, 10);
   if (buffer == endPtr || *endPtr != ' ') return false;  // Invalid format or no space after commandID
 
-  // Parse the param
-  payload.param = strtof(endPtr + 1, &endPtr);
-  if (endPtr == buffer || *endPtr != '\0') return false;  // Invalid format or extra characters after param
-
-  ESP_LOGD(TAG, "Parsed CommandPayload: commandID=%u, param=%.2f", payload.commandID, payload.param);
-
-  return true;  // Successfully parsed
+  // Now, try to parse the param as a float first
+  const char *paramStart = endPtr + 1;
+  char *floatEndPtr;
+  float f = strtof(paramStart, &floatEndPtr);
+  if (floatEndPtr != paramStart && *floatEndPtr == '\0') {
+    // Successfully parsed as float
+    payload.paramType = 0;  // float
+    payload.paramFloat = f;
+    ESP_LOGD(TAG, "Parsed CommandPayload: commandID=%u, paramType=float, param=%.2f", payload.commandID, payload.paramFloat);
+    return true;
+  } else {
+    // Treat as string (copy up to max size)
+    payload.paramType = 1;  // string
+    strncpy(payload.paramString, paramStart, sizeof(payload.paramString) - 1);
+    payload.paramString[sizeof(payload.paramString) - 1] = '\0';
+    ESP_LOGD(TAG, "Parsed CommandPayload: commandID=%u, paramType=string, param='%s'", payload.commandID, payload.paramString);
+    return true;
+  }
 }

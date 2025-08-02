@@ -285,13 +285,16 @@ bool SD_Talker::writeBlockToSD(const SampleWithTimestamp *block, size_t count) {
   return true;
 }
 
-bool SD_Talker::startNewLog(String filePrefix) {
+bool SD_Talker::startNewLog(String filePrefix, const std::vector<String> &channelNames, const std::vector<String> &channelUnits) {
   if (!m_initialised || !checkPresence()) {
     return false;
   }
 
   // TODO: Set these with config file
-  String startMsg = "Time(us), Data1(U), Data2(U), Data3(U), Data4(U), Data5(U), Data6(U), Data7(U), Data8(U)";
+  String startMsg = "Time(us)";
+  for (size_t i = 0; i < channelNames.size(); ++i) {
+    startMsg += ", " + channelNames[i] + "(" + channelUnits[i] + ")";
+  }
 
   if (createFile(startMsg, filePrefix)) {
     ESP_LOGI(TAG, "Created file on SD card!");

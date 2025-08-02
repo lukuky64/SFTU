@@ -13,6 +13,8 @@
 #include "actuation.hpp"
 #include "adcADS.hpp"
 #include "adcProcessor.hpp"
+#include "outputSequencer.hpp"
+
 #endif
 
 #define c_cmp(a, b) (strcmp(a, b) == 0)
@@ -34,6 +36,7 @@ class Commander {
   LoRaCom *m_loraCom;      // Pointer to LoRaCom instance
 
 #ifdef SFTU
+  outputSequencer *m_outputSequencer;
   Actuation *m_actuation;
   adcADS *m_adcADS;
   adcProcessor *m_adcProcessors[8] = {nullptr};
@@ -53,6 +56,8 @@ class Commander {
   void handle_calibrateCell(float param);
   void handle_setCellScale(float param);
   void handle_set_OUTPUT(float param);
+  
+  void handle_seq(const char *param);
 
   // ----- Command Handlers -----
   void handle_command_help();  // Command handler for "help"
@@ -97,6 +102,7 @@ class Commander {
 
  public:
   bool runCommand(uint8_t commandID, float param);
+  bool runCommand(uint8_t commandID, const char *param);
 
   void checkCommand(const HandlerMap *handler = command_handler);  // Check the command and run
                                                                    // the appropriate handler

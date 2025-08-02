@@ -105,7 +105,13 @@ void Control::serialDataTask() {
           vTaskDelay(pdMS_TO_TICKS(10));
         }
 
-        m_commander->runCommand(payload.commandID, payload.param);
+        if (payload.paramType == 0) {
+          // Float parameter
+          m_commander->runCommand(payload.commandID, payload.paramFloat);
+        } else {
+          // String parameter
+          m_commander->runCommand(payload.commandID, payload.paramString);
+        }
 
         // // Wait for ACK for this sequenceID
         // while (m_LoRaCom->isQueued(msg.sequenceID))
@@ -134,7 +140,13 @@ void Control::loRaDataTask() {
       else if (msg.type == TYPE_COMMAND) {
         CommandPayload payload;
         memcpy(&payload, msg.payload, sizeof(payload));
-        m_commander->runCommand(payload.commandID, payload.param);
+        if (payload.paramType == 0) {
+          // Float parameter
+          m_commander->runCommand(payload.commandID, payload.paramFloat);
+        } else {
+          // String parameter
+          m_commander->runCommand(payload.commandID, payload.paramString);
+        }
       } else if (msg.type == TYPE_STATUS) {
         StatusPayload payload;
         memcpy(&payload, msg.payload, sizeof(payload));

@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-#define MAX_PAYLOAD_SIZE 64
+#define MAX_PAYLOAD_SIZE 240
 
 #define MAX_QUEUE_SIZE 10
 #define ACK_TIMEOUT_MS 1000
@@ -35,7 +35,11 @@ struct StatusPayload {
 
 struct CommandPayload {
   uint8_t commandID;
-  float param;
+  uint8_t paramType;  // 0 = float, 1 = string
+  union {
+    float paramFloat;
+    char paramString[128];
+  };
 };
 
 struct AckPayload {
