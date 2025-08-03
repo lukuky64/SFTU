@@ -33,7 +33,8 @@ class LoRaCom {
 
     state |= static_cast<RadioType *>(radio)->begin(freqMHz, bw, sf, cr, syncWord, power, preambleLength);
 
-    state |= static_cast<RadioType *>(radio)->forceLDRO(true);  // ! test this
+    // state |= static_cast<RadioType *>(radio)->forceLDRO(true);  // ! test this
+    state |= static_cast<RadioType *>(radio)->autoLDRO();  // Enable automatic low data rate optimization
 
     if (radioType == RADIO_SX126X) {
       // not sure if this is better, I imagine less interference over SMPS
