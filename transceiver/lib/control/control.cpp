@@ -50,7 +50,7 @@ void Control::begin() {
   // Higher priority = higher number, priorities should be 1-3 for user tasks
   xTaskCreate([](void *param) { static_cast<Control *>(param)->serialDataTask(); }, "SerialDataTask", 8192, this, 2, &SerialTaskHandle);
 
-  xTaskCreate([](void *param) { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 2, &LoRaTaskHandle);
+  xTaskCreate([](void *param) { static_cast<Control *>(param)->loRaDataTask(); }, "LoRaDataTask", 8192, this, 3, &LoRaTaskHandle);
 
   xTaskCreate([](void *param) { static_cast<Control *>(param)->statusTask(); }, "StatusTask", 8192, this, 1, &StatusTaskHandle);
 
@@ -152,7 +152,7 @@ void Control::loRaDataTask() {
         memcpy(&payload, msg.payload, sizeof(payload));
 
         String statusMsg = String("status ") + "ID:" + String(msg.senderID) + " RSSI:" + String(payload.rssi) + " battVoltage:" + String(payload.batteryVoltage) + " status:" + String(payload.status) + " IN1:" + String(payload.IN1) + " IN2:" + String(payload.IN2) + " IN3:" + String(payload.IN3) +
-                           " IN4:" + String(payload.IN4) + "\n";
+                           " IN4:" + String(payload.IN4) + " IN5:" + String(payload.IN5) + " IN6:" + String(payload.IN6) + " IN7:" + String(payload.IN7) + " IN8:" + String(payload.IN8) + "\n";
         m_serialCom->sendData(statusMsg.c_str());
       }
       // Clear for the next iteration

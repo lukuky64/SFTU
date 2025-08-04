@@ -8,6 +8,8 @@
 #include "LoRaMsg.hpp"
 #include "esp_log.h"
 
+// https://www.semtech.com/design-support/lora-calculator
+
 #define BROADCAST_ID 0xFF
 
 enum RadioType { RADIO_UNKNOWN, RADIO_SX127X, RADIO_SX126X };
@@ -22,12 +24,12 @@ class LoRaCom {
 
     radio = new RadioType((BUSY == -1) ? new Module(csPin, intPin, RST) : new Module(csPin, intPin, RST, BUSY));
 
-    float freqMHz = 910.0f;       // Default frequency for LoRa <137.0 - 960.0> MHz
-    float bw = 250.0f;            // Default bandwidth for LoRa <7.8 - 510.0> kHz
-    int8_t sf = 9;                // Spreading factor <5 - 12>
-    uint8_t cr = 5;               // Coding rate denominator (4/cr) <5 - 8>
-    uint8_t syncWord = 0x12;      // sync word for private LoRa
-    uint16_t preambleLength = 8;  // preamble length in symbols
+    float freqMHz = 910.0f;        // Default frequency for LoRa <137.0 - 960.0> MHz
+    float bw = 250.0f;             // Default bandwidth for LoRa <7.8 - 510.0> kHz. Each increment changes sensitivity by ~3dB
+    int8_t sf = 7;                 // Spreading factor <5 - 12>. Each increment changes sensitivity by 2.5-3.0dB. High = better
+    uint8_t cr = 5;                // Coding rate denominator (4/cr) <5 - 8>
+    uint8_t syncWord = 0x12;       // sync word for private LoRa
+    uint16_t preambleLength = 32;  // preamble length in symbols. delta_sensitivity = 10*log(preambleLength=16/8) = 3dB increase
 
     int state = RADIOLIB_ERR_NONE;
 
@@ -37,8 +39,8 @@ class LoRaCom {
     state |= static_cast<RadioType *>(radio)->autoLDRO();  // Enable automatic low data rate optimization
 
     if (radioType == RADIO_SX126X) {
-      // not sure if this is better, I imagine less interference over SMPS
-      state |= static_cast<SX1262 *>(radio)->setRegulatorLDO();
+      // not sure if this is better, I imagine less interference over SMPS. Semtech calculator shows no difference
+      // state |= static_cast<SX1262 *>(radio)->setRegulatorLDO();
       // set max current limit to 140 mA
       state |= static_cast<SX1262 *>(radio)->setCurrentLimit(140);
       state |= static_cast<SX1262 *>(radio)->calibrateImage(freqMHz);

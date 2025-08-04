@@ -5,9 +5,11 @@
 #define MAX_PAYLOAD_SIZE 240
 
 #define MAX_QUEUE_SIZE 10
+#define MAX_RETRIES 10
+
+// TODO: These should really be informed by the parameters used (BW, SF, processing time, etc)
 #define ACK_TIMEOUT_MS 1000
-#define TX_TIMEOUT_MS 3000
-#define MAX_RETRIES 16
+#define TX_TIMEOUT_MS 1000
 
 #pragma pack(push, 1)
 struct LoRaMessage {

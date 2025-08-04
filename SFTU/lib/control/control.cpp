@@ -181,8 +181,8 @@ void Control::displayTask() {
 }
 
 void Control::analogTask() {
-  m_adcADS_12->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS);
-  m_adcADS_34->setInputConfig(GAIN_TWO, RATE_ADS1115_860SPS);
+  m_adcADS_12->setInputConfig(GAIN_ONE, RATE_ADS1115_860SPS);
+  m_adcADS_34->setInputConfig(GAIN_ONE, RATE_ADS1115_860SPS);
 
   uint64_t interval_us = (uint64_t)(1e6 / (double)ADC_SPS);
 
@@ -494,6 +494,8 @@ void Control::statusTask() {
     m_serialCom->sendData(statusMsg);
 
     if (m_LoRaCom->enqueueMessage(msg, false)) ESP_LOGD(TAG, "Adding to transmit queue...");
+
+    // checkTaskStack();
     vTaskDelay(pdMS_TO_TICKS(status_Interval));
   }
 }
@@ -577,4 +579,5 @@ void Control::setupADC_Channels(adcADS *adc, std::array<ChannelConfig, 4> &chann
 void Control::setupADC_Config() {
   setupADC_Channels(m_adcADS_12, m_config->adc1_channels, 0);
   setupADC_Channels(m_adcADS_34, m_config->adc2_channels, 4);
+  ESP_LOGI(TAG, "ADC configuration setup complete");
 }

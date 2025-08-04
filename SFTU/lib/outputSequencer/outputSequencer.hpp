@@ -9,6 +9,8 @@
 
 #include "actuation.hpp"
 
+#define NEXT_SEQ_PERIOD 5000  // ms. Time to wait before starting a new sequence. Helps wiith repeated control command through LoRa
+
 struct sequenceBlock {
   uint8_t channel;      // 1-8
   bool state;           // true for ON, false for OFF
@@ -28,4 +30,6 @@ class outputSequencer {
   sequences allSequences;
   Actuation *m_actuation;
   volatile bool seqRunning = false;
+
+  unsigned long lastSequenceStart = 0;
 };

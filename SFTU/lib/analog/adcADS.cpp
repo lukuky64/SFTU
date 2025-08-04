@@ -132,7 +132,6 @@ bool adcADS::setGain(int gain) {
 
 float adcADS::getAverageVolt(uint16_t numSamples, const uint16_t mux) {
   float averageSample = 0.0f;
-  ESP_LOGD(TAG, "Acquired ADC mutex in getAverageVolt");
   for (int i = 0; i < numSamples; ++i) {
     if (continuousMode) {
       averageSample += getLastVolt();

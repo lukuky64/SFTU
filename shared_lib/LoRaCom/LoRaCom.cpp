@@ -20,19 +20,15 @@ void LoRaCom::RxTxCallback(void) {
       state |= instance->radio->startReceive();
       instance->TxMode = false;
       if (state == RADIOLIB_ERR_NONE) {
-        ESP_LOGI(TAG, "Transmission finished");
         // Mark messages that do not require ACK as acknowledged and move to done queue
         if (instance->currentTxIndex >= 0 && instance->currentTxIndex < MAX_QUEUE_SIZE) {
           QueuedMessage &q = instance->sendQueue[instance->currentTxIndex];
           if (!q.reqAck && !q.acknowledged && !q.failed) {
             q.acknowledged = true;
             instance->moveToDoneQueue(q);
-            ESP_LOGI(TAG, "Message (seq %u) marked as acknowledged after transmission (no ACK required).", q.msg.sequenceID);
           }
           instance->currentTxIndex = -1;
         }
-      } else {
-        ESP_LOGE(TAG, "Transmission failed, code: %d", state);
       }
     } else {
       instance->RxFlag = true;
@@ -174,6 +170,9 @@ bool LoRaCom::setBandwidth(float bandwidth) {
 
 bool LoRaCom::enqueueMessage(LoRaMessage &msg, bool requireAck) {
   if (sendCount == MAX_QUEUE_SIZE) ESP_LOGE(TAG, "Send queue is full, cannot enqueue message");
+
+  ESP_LOGD(TAG, "Enqueuing message with length: %u", msg.length);
+
   if (msg.length > MAX_PAYLOAD_SIZE) return false;
   msg.sequenceID = nextSequenceID++;
   ESP_LOGD(TAG, "Enqueuing message with sequence ID: %u", msg.sequenceID);
@@ -213,7 +212,7 @@ void LoRaCom::processSendQueue() {
     QueuedMessage &q = sendQueue[idx];
     if (q.acknowledged || !q.reqAck) continue;
 
-    if (millis() - q.lastSendTime >= ACK_TIMEOUT_MS) {
+    if ((q.retryCount == 0) || (millis() - q.lastSendTime >= ACK_TIMEOUT_MS)) {
       if (q.retryCount < MAX_RETRIES) {
         sendMessage(reinterpret_cast<const uint8_t *>(&q.msg), sizeof(LoRaMessage), TX_TIMEOUT_MS, idx);
         q.lastSendTime = millis();

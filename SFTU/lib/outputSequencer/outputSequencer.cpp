@@ -41,26 +41,30 @@ void outputSequencer::createSequence(String sequenceString, uint16_t uid) {
 }
 
 void outputSequencer::startSequence(uint16_t uid) {
-  auto it = allSequences.find(uid);
-  if (it != allSequences.end()) {
-    seqRunning = true;
-    sequence &seq = it->second;
+  if (millis() - lastSequenceStart > NEXT_SEQ_PERIOD) {
+    auto it = allSequences.find(uid);
+    if (it != allSequences.end()) {
+      seqRunning = true;
+      sequence &seq = it->second;
 
-    for (const auto &block : seq) {
-      if (seqRunning) {
-        m_actuation->setDigital(PCA6408A_outputPins[block.channel], (block.state ? OUTPUT_LOW : OUTPUT_OPEN));
+      lastSequenceStart = millis();  // Record the start time of the sequence
 
-        // this will give better timing control
-        unsigned long startTime = millis();
-        while (millis() - startTime < block.durationMS) {
-          vTaskDelay(pdMS_TO_TICKS(1));
+      for (const auto &block : seq) {
+        if (seqRunning) {
+          m_actuation->setDigital(PCA6408A_outputPins[block.channel], (block.state ? OUTPUT_LOW : OUTPUT_OPEN));
+
+          // this will give better timing control
+          unsigned long startTime = millis();
+          while (millis() - startTime < block.durationMS) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+          }
+        } else {
+          break;
         }
-      } else {
-        break;
       }
+    } else {
+      Serial.printf("Sequence with UID %d not found.\n", uid);
     }
-  } else {
-    Serial.printf("Sequence with UID %d not found.\n", uid);
   }
 }
 

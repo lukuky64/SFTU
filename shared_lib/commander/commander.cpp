@@ -8,9 +8,7 @@ Commander::Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuatio
   m_actuation = actuation;
   m_outputSequencer = new outputSequencer(actuation);  // Initialize output sequencer
   m_adcADS = adcADS;
-  for (int i = 0; i < 8; ++i) {
-    m_adcProcessors[i] = adcProcessors[i];
-  }
+  m_adcProcessors = adcProcessors;  // Initialize the adcProcessors array
   ESP_LOGD(TAG, "Commander initialised");
 }
 #else
@@ -300,13 +298,17 @@ void Commander::handle_update_bandwidthKHz(float bw) { m_loraCom->setBandwidth(b
 
 #ifdef SFTU
 void Commander::handle_calibrateCell(float massKg) {
-  // TODO: FIX
   // FIXME: All this needs to be fixed up
   ESP_LOGD(TAG, "Calibrate cell command executing");
   float averageVoltage = m_adcADS->getAverageVolt(100, ADS1X15_REG_CONFIG_MUX_DIFF_0_1);  // Read average voltage from ADC
 
-  float force = massKg * 9.81f;                          // Convert mass to force in Newtons
-  m_adcProcessors[0]->calibrate(force, averageVoltage);  // param is the object mass
+  float force = massKg * 9.81f;  // Convert mass to force in Newtons
+
+  if (m_adcProcessors[0]) {
+    m_adcProcessors[0]->calibrate(force, averageVoltage);  // param is the object mass
+  } else {
+    ESP_LOGE(TAG, "m_adcProcessors[0] is nullptr!");
+  }
 }
 
 void Commander::handle_setCellScale(float scale) { m_adcProcessors[0]->setScale(scale); }

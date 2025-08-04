@@ -39,7 +39,7 @@ class Commander {
   outputSequencer *m_outputSequencer;
   Actuation *m_actuation;
   adcADS *m_adcADS;
-  adcProcessor *m_adcProcessors[8] = {nullptr};
+  adcProcessor **m_adcProcessors;
 #endif
 
   typedef void (Commander::*Handler)();
@@ -56,7 +56,7 @@ class Commander {
   void handle_calibrateCell(float param);
   void handle_setCellScale(float param);
   void handle_set_OUTPUT(float param);
-  
+
   void handle_seq(const char *param);
 
   // ----- Command Handlers -----
