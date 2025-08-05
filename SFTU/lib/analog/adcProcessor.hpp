@@ -6,7 +6,7 @@ class adcProcessor {
   adcProcessor();
   float processVtoUnits(float voltage, float units_per_V = -1.0f);
   void tareVolts(float voltage);
-  void calibrate(float realUnits, float voltage);
+  float calibrate(float realUnits, float voltage);
   void setScale(float scale);
 
  private:

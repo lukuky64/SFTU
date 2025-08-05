@@ -16,13 +16,14 @@ void adcProcessor::tareVolts(float voltage) {
 }
 
 // use commander to call this function
-void adcProcessor::calibrate(float realUnits, float voltage) {
+float adcProcessor::calibrate(float realUnits, float voltage) {
   ESP_LOGI(TAG, "rawVoltage: %.3f V, Voffset: %.3f V", voltage, m_Voffset);
 
   float taredVoltage = voltage - m_Voffset;
   ESP_LOGI(TAG, "Calibrating with real units: %.3f U, tared voltage: %.3f V", realUnits, taredVoltage);
   m_units_per_V = realUnits / (taredVoltage);
   ESP_LOGI(TAG, "Calibration complete: Units_per_V = %.3f N/V", m_units_per_V);
+  return m_units_per_V;
 }
 
 void adcProcessor::setScale(float scale) {

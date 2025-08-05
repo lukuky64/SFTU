@@ -305,7 +305,8 @@ void Commander::handle_calibrateCell(float massKg) {
   float force = massKg * 9.81f;  // Convert mass to force in Newtons
 
   if (m_adcProcessors[0]) {
-    m_adcProcessors[0]->calibrate(force, averageVoltage);  // param is the object mass
+    float calibrationResult = m_adcProcessors[0]->calibrate(force, averageVoltage);  // param is the object mass
+    m_serialCom->sendData(String(calibrationResult).c_str());                        // Send the calibration result back
   } else {
     ESP_LOGE(TAG, "m_adcProcessors[0] is nullptr!");
   }
