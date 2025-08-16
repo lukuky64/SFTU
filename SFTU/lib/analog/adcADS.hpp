@@ -27,7 +27,7 @@ class adcADS : public adcBase {
   int getResolution() const override;
 
   // Set up ADC for continuous reading, we might need DMAs and ISRs
-  void startContinuous() override;
+  void startContinuous(const uint16_t mux);
 
   // Set the gain for the ADC
   bool setGain(int gain) override;
@@ -36,7 +36,7 @@ class adcADS : public adcBase {
   bool setDataRate(uint16_t rate) override;
 
   // set up the configuration for the ADC inputs
-  void setInputConfig(adsGain_t gain = GAIN_TWOTHIRDS, uint8_t dataRate = RATE_ADS1115_128SPS, int mux = ADS1X15_REG_CONFIG_MUX_DIFF_0_1);
+  void setInputConfig(adsGain_t gain = GAIN_TWO, uint8_t dataRate = RATE_ADS1115_860SPS);
 
   float getAverageVolt(uint16_t numSamples, const uint16_t mux);
 

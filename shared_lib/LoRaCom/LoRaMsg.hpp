@@ -2,12 +2,14 @@
 
 #include <Arduino.h>
 
-#define MAX_PAYLOAD_SIZE 64
+#define MAX_PAYLOAD_SIZE 240
 
 #define MAX_QUEUE_SIZE 10
+#define MAX_RETRIES 10
+
+// TODO: These should really be informed by the parameters used (BW, SF, processing time, etc)
 #define ACK_TIMEOUT_MS 1000
-#define TX_TIMEOUT_MS 3000
-#define MAX_RETRIES 16
+#define TX_TIMEOUT_MS 1000
 
 #pragma pack(push, 1)
 struct LoRaMessage {
@@ -27,11 +29,19 @@ struct StatusPayload {
   float IN2;
   float IN3;
   float IN4;
+  float IN5;
+  float IN6;
+  float IN7;
+  float IN8;
 };
 
 struct CommandPayload {
   uint8_t commandID;
-  float param;
+  uint8_t paramType;  // 0 = float, 1 = string
+  union {
+    float paramFloat;
+    char paramString[128];
+  };
 };
 
 struct AckPayload {

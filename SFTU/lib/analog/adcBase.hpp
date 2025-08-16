@@ -15,9 +15,6 @@ class adcBase {
   // Get the resolution of the ADC
   virtual int getResolution() const = 0;
 
-  // Set up ADC for continuous reading, we might neeed DMAs and ISRs
-  virtual void startContinuous() = 0;
-
   // Set the gain for the ADC
   virtual bool setGain(int gain) = 0;
 

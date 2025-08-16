@@ -12,7 +12,9 @@
 #ifdef SFTU
 #include "actuation.hpp"
 #include "adcADS.hpp"
-#include "loadCellProcessing.hpp"
+#include "adcProcessor.hpp"
+#include "outputSequencer.hpp"
+
 #endif
 
 #define c_cmp(a, b) (strcmp(a, b) == 0)
@@ -20,7 +22,7 @@
 class Commander {
  public:
 #ifdef SFTU
-  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, loadCellProcessing *loadCellProcessing);
+  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, adcProcessor *adcProcessors[8]);
 #else
   Commander(SerialCom *serialCom, LoRaCom *loraCom);
 #endif
@@ -34,9 +36,10 @@ class Commander {
   LoRaCom *m_loraCom;      // Pointer to LoRaCom instance
 
 #ifdef SFTU
+  outputSequencer *m_outputSequencer;
   Actuation *m_actuation;
   adcADS *m_adcADS;
-  loadCellProcessing *m_loadCellProcessing;
+  adcProcessor **m_adcProcessors;
 #endif
 
   typedef void (Commander::*Handler)();
@@ -53,6 +56,8 @@ class Commander {
   void handle_calibrateCell(float param);
   void handle_setCellScale(float param);
   void handle_set_OUTPUT(float param);
+
+  void handle_seq(const char *param);
 
   // ----- Command Handlers -----
   void handle_command_help();  // Command handler for "help"
@@ -97,6 +102,7 @@ class Commander {
 
  public:
   bool runCommand(uint8_t commandID, float param);
+  bool runCommand(uint8_t commandID, const char *param);
 
   void checkCommand(const HandlerMap *handler = command_handler);  // Check the command and run
                                                                    // the appropriate handler

@@ -51,8 +51,8 @@ class Control {
   Commander *m_commander;
   SaveFlash *m_saveFlash;
 
-  unsigned long serial_Interval = 50;
-  unsigned long lora_Interval = 50;
+  unsigned long serial_Interval = 5;
+  unsigned long lora_Interval = 5;
   unsigned long status_Interval = 5'100;  // slightly out of sync with other device
   unsigned long heartBeat_Interval = 500;
 

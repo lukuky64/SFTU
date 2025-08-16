@@ -21,16 +21,15 @@ void adcADS::init(uint8_t addr) {
   Serial.println("ADS1115 initialised successfully!");
 }
 
-void adcADS::setInputConfig(adsGain_t gain, uint8_t dataRate, int mux) {
+void adcADS::setInputConfig(adsGain_t gain, uint8_t dataRate) {
   m_adc->setGain(gain);
   m_adc->setDataRate(dataRate);
-  m_mux = mux;
 }
 
-void adcADS::startContinuous() {
+void adcADS::startContinuous(const uint16_t mux) {
   // Start continuous ADC reading
   continuousMode = true;
-  m_adc->startADCReading(m_mux, continuousMode);
+  m_adc->startADCReading(mux, continuousMode);
 }
 
 float adcADS::readNewVolt(const uint16_t mux) {
@@ -133,7 +132,6 @@ bool adcADS::setGain(int gain) {
 
 float adcADS::getAverageVolt(uint16_t numSamples, const uint16_t mux) {
   float averageSample = 0.0f;
-  ESP_LOGD(TAG, "Acquired ADC mutex in getAverageVolt");
   for (int i = 0; i < numSamples; ++i) {
     if (continuousMode) {
       averageSample += getLastVolt();

@@ -9,6 +9,7 @@
 #include "SerialCom.hpp"
 #include "Wire.h"
 #include "adcADS.hpp"
+#include "adcProcessor.hpp"
 #include "commander.hpp"
 #include "display.hpp"
 #include "driver/timer.h"
@@ -18,11 +19,12 @@
 
 #ifdef SFTU
 #include "BattMonitor.hpp"
-#include "PTProcessing.hpp"
+#include "ControlConfig.hpp"
+// #include "PTProcessing.hpp"
 #include "SD_Talker.hpp"
 #include "actuation.hpp"
 #include "esp_task_wdt.h"
-#include "loadCellProcessing.hpp"
+// #include "loadCellProcessing.hpp"
 
 #else
 #include "saveFlash.hpp"
@@ -72,11 +74,18 @@ class Control {
   SD_Talker *m_sdTalker;
   Display *m_display;
   BattMonitor *m_battMonitor;
-  loadCellProcessing *m_loadCellProcessing;
-  PTProcessing *m_ptProcessing;
+
+  // Use arrays for multiple adcProcessor instances
+  adcProcessor *m_adcProcessors[8] = {nullptr};
+
+  // Optionally, for clarity, you can use enum or comments to indicate usage
+  // enum { LOAD_CELL_1, PRESS_TRAN_1, ... };
+
+  // If you need to access by name, you can wrap in a struct or use an enum as index
 
 #ifdef SFTU
   Actuation *m_actuation;
+  ControlConfig *m_config;
 #else
   SaveFlash *m_saveFlash;
 #endif
@@ -88,7 +97,7 @@ class Control {
 
   unsigned long serial_Interval = 50;
   unsigned long lora_Interval = 50;
-  unsigned long status_Interval = 2'000;
+  unsigned long status_Interval = 1'000;
   unsigned long heartBeat_Interval = 500;
 
   static constexpr const char *TAG = "Control";
@@ -132,6 +141,9 @@ class Control {
   // void interpretMessage(const char *buffer, bool relayMsgLoRa);
   void processData(const char *buffer);
   void queueSample();
+
+  void setupADC_Channels(adcADS *adc, std::array<ChannelConfig, 4> &channels, int processorOffset);
+  void setupADC_Config();
 
   String deviceID = "SFTU";  // Unique identifier for the device
 

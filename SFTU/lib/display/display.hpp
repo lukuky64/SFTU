@@ -27,7 +27,7 @@ class Display {
   void drawBitMap(Bitmap data, int16_t x = -1, int16_t y = -1);
   void drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready, float battPer, bool forceUpdateAll);
   void drawForce(float forceInput, bool updateDisp);
-  void drawForce(float input1, float input2, float input3, float input4, bool updateDisp);
+  void drawData(float input1 = 0.0f, float input2 = 0.0f, float input3 = 0.0f, float input4 = 0.0f, float input5 = 0.0f, float input6 = 0.0f, float input7 = 0.0f, float input8 = 0.0f, bool updateDisp = false);
 
   void drawIntroPage();
 
