@@ -25,11 +25,11 @@ class LoRaCom {
     radio = new RadioType((BUSY == -1) ? new Module(csPin, intPin, RST) : new Module(csPin, intPin, RST, BUSY));
 
     float freqMHz = 910.0f;        // Default frequency for LoRa <137.0 - 960.0> MHz
-    float bw = 250.0f;             // Default bandwidth for LoRa <7.8 - 510.0> kHz. Each increment changes sensitivity by ~3dB
+    float bw = 500.0f;             // Default bandwidth for LoRa <7.8 - 500.0> kHz. Each increment changes sensitivity by ~3dB
     int8_t sf = 7;                 // Spreading factor <5 - 12>. Each increment changes sensitivity by 2.5-3.0dB. High = better
     uint8_t cr = 5;                // Coding rate denominator (4/cr) <5 - 8>
     uint8_t syncWord = 0x12;       // sync word for private LoRa
-    uint16_t preambleLength = 32;  // preamble length in symbols. delta_sensitivity = 10*log(preambleLength=16/8) = 3dB increase
+    uint16_t preambleLength = 16;  // preamble length in symbols. delta_sensitivity = 10*log(preambleLength=16/8) = 3dB increase
 
     int state = RADIOLIB_ERR_NONE;
 

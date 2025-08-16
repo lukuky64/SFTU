@@ -9,7 +9,7 @@
 
 #include "actuation.hpp"
 
-#define NEXT_SEQ_PERIOD 5000  // ms. Time to wait before starting a new sequence. Helps wiith repeated control command through LoRa
+#define NEXT_SEQ_PERIOD 30'000  // ms. Time to wait before starting a new sequence. Helps wiith repeated control command through LoRa
 
 struct sequenceBlock {
   uint8_t channel;      // 1-8

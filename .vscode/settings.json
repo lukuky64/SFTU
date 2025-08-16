@@ -1,0 +1,22 @@
+{
+    "files.associations": {
+        "*.tex": "latex",
+        "__bit_reference": "cpp",
+        "__config": "cpp",
+        "__hash_table": "cpp",
+        "__split_buffer": "cpp",
+        "__tree": "cpp",
+        "array": "cpp",
+        "deque": "cpp",
+        "initializer_list": "cpp",
+        "iterator": "cpp",
+        "locale": "cpp",
+        "map": "cpp",
+        "print": "cpp",
+        "queue": "cpp",
+        "string": "cpp",
+        "string_view": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp"
+    }
+}
