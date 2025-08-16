@@ -5,44 +5,43 @@
 #include <cstring>
 
 #include "LoRaCom.hpp"
-#include "SerialCom.hpp"
 #include "LoraMsg.hpp"
+#include "SerialCom.hpp"
 #include "commandID.hpp"
 
 #ifdef SFTU
-#include "ADCprocessing.hpp"
 #include "actuation.hpp"
 #include "adcADS.hpp"
+#include "loadCellProcessing.hpp"
 #endif
 
 #define c_cmp(a, b) (strcmp(a, b) == 0)
 
-class Commander
-{
-public:
+class Commander {
+ public:
 #ifdef SFTU
-  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS);
+  Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuation, adcADS *adcADS, loadCellProcessing *loadCellProcessing);
 #else
   Commander(SerialCom *serialCom, LoRaCom *loraCom);
 #endif
 
-private:
-  char *m_command[128]; // Buffer to store the command
+ private:
+  char *m_command[128];  // Buffer to store the command
 
-  uint16_t m_timeout = 20'000; // 20 second timeout for commands
+  uint16_t m_timeout = 20'000;  // 20 second timeout for commands
 
-  SerialCom *m_serialCom; // Pointer to SerialCom instance
-  LoRaCom *m_loraCom;     // Pointer to LoRaCom instance
+  SerialCom *m_serialCom;  // Pointer to SerialCom instance
+  LoRaCom *m_loraCom;      // Pointer to LoRaCom instance
 
 #ifdef SFTU
   Actuation *m_actuation;
   adcADS *m_adcADS;
+  loadCellProcessing *m_loadCellProcessing;
 #endif
 
   typedef void (Commander::*Handler)();
 
-  struct HandlerMap
-  {
+  struct HandlerMap {
     const char *name;
     Handler handler;
   };
@@ -52,24 +51,25 @@ private:
   void handle_update_spreadingFactor(float param);
   void handle_update_bandwidthKHz(float param);
   void handle_calibrateCell(float param);
+  void handle_setCellScale(float param);
   void handle_set_OUTPUT(float param);
 
   // ----- Command Handlers -----
-  void handle_command_help(); // Command handler for "help"
-  void handle_update();       // Command handler for "update" parameters
-  void handle_set();          // Command handler for "set" parameters
-  void handle_mode();         // Command handler for "mode" (eg: transmit, receive,
-                              // transcieve, spectrum scan, etc")
+  void handle_command_help();  // Command handler for "help"
+  void handle_update();        // Command handler for "update" parameters
+  void handle_set();           // Command handler for "set" parameters
+  void handle_mode();          // Command handler for "mode" (eg: transmit, receive,
+                               // transcieve, spectrum scan, etc")
 
   // ----- Update Handlers -----
-  void handle_update_help();            // Command handler for "help"
-  void handle_update_gain();            // Command handler for "update gain"
-  void handle_update_freqMhz();         // Command handler for "update freqMhz"
-  void handle_update_spreadingFactor(); // Command handler for "update
-                                        // spreading factor"
-  void handle_update_bandwidthKHz();    // Command handler for "update bandwidth"
+  void handle_update_help();             // Command handler for "help"
+  void handle_update_gain();             // Command handler for "update gain"
+  void handle_update_freqMhz();          // Command handler for "update freqMhz"
+  void handle_update_spreadingFactor();  // Command handler for "update
+                                         // spreading factor"
+  void handle_update_bandwidthKHz();     // Command handler for "update bandwidth"
 
-  void handle_calibrateCell(); // Command handler for "calibrateCell"
+  void handle_calibrateCell();  // Command handler for "calibrateCell"
   // void handle_tareCell();       // Command handler for "tareCell"
 
   void handle_set_help();
@@ -95,11 +95,11 @@ private:
 
   static constexpr const char *TAG = "Commander";
 
-public:
+ public:
   bool runCommand(uint8_t commandID, float param);
 
-  void checkCommand(const HandlerMap *handler = command_handler); // Check the command and run
-                                                                  // the appropriate handler
+  void checkCommand(const HandlerMap *handler = command_handler);  // Check the command and run
+                                                                   // the appropriate handler
 
   void setCommand(const char *buffer);
 

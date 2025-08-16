@@ -10,43 +10,32 @@
 
 #define BROADCAST_ID 0xFF
 
-enum RadioType
-{
-  RADIO_UNKNOWN,
-  RADIO_SX127X,
-  RADIO_SX126X
-};
+enum RadioType { RADIO_UNKNOWN, RADIO_SX127X, RADIO_SX126X };
 
-class LoRaCom
-{
-public:
+class LoRaCom {
+ public:
   LoRaCom();
 
   template <typename RadioType>
-  bool begin(uint8_t CLK, uint8_t MISO, uint8_t MOSI, uint8_t csPin,
-             uint8_t intPin, uint8_t RST, int8_t power, int8_t BUSY = -1)
-  {
+  bool begin(uint8_t CLK, uint8_t MISO, uint8_t MOSI, uint8_t csPin, uint8_t intPin, uint8_t RST, int8_t power, int8_t BUSY = -1) {
     SPI.begin(CLK, MISO, MOSI, csPin);
 
-    radio = new RadioType((BUSY == -1) ? new Module(csPin, intPin, RST)
-                                       : new Module(csPin, intPin, RST, BUSY));
+    radio = new RadioType((BUSY == -1) ? new Module(csPin, intPin, RST) : new Module(csPin, intPin, RST, BUSY));
 
-    float freqMHz = 910.0f;       // Default frequency for LoRa <137.0 - 960.0> MHz
-    float bw = 125.0f;            // Default bandwidth for LoRa <7.8 - 510.0> kHz
-    int8_t sf = 9;                // Spreading factor <5 - 12>
-    uint8_t cr = 5;               // Coding rate denominator (4/cr) <5 - 8>
-    uint8_t syncWord = 0x12;      // sync word for private LoRa
-    uint16_t preambleLength = 16; // preamble length in symbols
+    float freqMHz = 910.0f;        // Default frequency for LoRa <137.0 - 960.0> MHz
+    float bw = 250.0f;             // Default bandwidth for LoRa <7.8 - 510.0> kHz
+    int8_t sf = 9;                 // Spreading factor <5 - 12>
+    uint8_t cr = 5;                // Coding rate denominator (4/cr) <5 - 8>
+    uint8_t syncWord = 0x12;       // sync word for private LoRa
+    uint16_t preambleLength = 16;  // preamble length in symbols
 
     int state = RADIOLIB_ERR_NONE;
 
-    state |= static_cast<RadioType *>(radio)->begin(
-        freqMHz, bw, sf, cr, syncWord, power, preambleLength);
+    state |= static_cast<RadioType *>(radio)->begin(freqMHz, bw, sf, cr, syncWord, power, preambleLength);
 
-    state |= static_cast<RadioType *>(radio)->forceLDRO(true); // ! test this
+    state |= static_cast<RadioType *>(radio)->forceLDRO(true);  // ! test this
 
-    if (radioType == RADIO_SX126X)
-    {
+    if (radioType == RADIO_SX126X) {
       // not sure if this is better, I imagine less interference over SMPS
       state |= static_cast<SX1262 *>(radio)->setRegulatorLDO();
       // set max current limit to 140 mA
@@ -59,14 +48,11 @@ public:
     // radio->setPacketSentAction(TxCallback);
 
     state |= radio->startReceive();
-    if (state == RADIOLIB_ERR_NONE)
-    {
+    if (state == RADIOLIB_ERR_NONE) {
       ESP_LOGI(TAG, "LoRa initialised successfully!");
       radioInitialised = true;
       return true;
-    }
-    else
-    {
+    } else {
       ESP_LOGE(TAG, "LoRa initialisation FAILED! Code: %d", state);
       return false;
     }
@@ -97,8 +83,8 @@ public:
 
   bool stringToCommandPayload(CommandPayload &payload, const char *buffer);
 
-private:
-  int currentTxIndex = -1; // Track which message is being transmitted
+ private:
+  int currentTxIndex = -1;  // Track which message is being transmitted
   static void RxTxCallback(void);
 
   void handleAck(uint16_t ackSeqID);

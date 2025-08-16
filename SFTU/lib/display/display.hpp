@@ -7,8 +7,7 @@
 
 #include "bitMaps.hpp"
 
-struct mainPageStatus
-{
+struct mainPageStatus {
   bool cell;
   bool sd;
   bool rf;
@@ -17,9 +16,8 @@ struct mainPageStatus
   float battPer;
 };
 
-class Display
-{
-public:
+class Display {
+ public:
   Display();
   ~Display();
 
@@ -27,9 +25,9 @@ public:
   void begin();
 
   void drawBitMap(Bitmap data, int16_t x = -1, int16_t y = -1);
-  void drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready,
-                   float battPer, bool forceUpdateAll);
+  void drawPageBar(bool cell, bool sd, bool rf, bool armed, bool ready, float battPer, bool forceUpdateAll);
   void drawForce(float forceInput, bool updateDisp);
+  void drawForce(float input1, float input2, float input3, float input4, bool updateDisp);
 
   void drawIntroPage();
 
@@ -39,15 +37,13 @@ public:
 
   void dim(bool dim_ = true) { display.dim(dim_); }
 
-private:
+ private:
   float m_force = 0.0f;
-  const int SCREEN_WIDTH = 128; // OLED display width, in pixels
-  const int SCREEN_HEIGHT = 64; // OLED display height, in pixels
+  const int SCREEN_WIDTH = 128;  // OLED display width, in pixels
+  const int SCREEN_HEIGHT = 64;  // OLED display height, in pixels
 
-  const int OLED_RESET =
-      -1; // Reset pin # (or -1 if sharing Arduino reset pin)
-  const int SCREEN_ADDRESS =
-      0x3C; ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+  const int OLED_RESET = -1;        // Reset pin # (or -1 if sharing Arduino reset pin)
+  const int SCREEN_ADDRESS = 0x3C;  ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 
   Adafruit_SSD1306 display;
 
