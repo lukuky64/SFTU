@@ -1,6 +1,12 @@
 #include "outputSequencer.hpp"
 
-outputSequencer::outputSequencer(Actuation *actuation) : m_actuation(actuation) {}
+outputSequencer::outputSequencer(Actuation *actuation) : m_actuation(actuation), lastSequenceStart(0), m_firstRun(true) {
+  // Create command queue and background task
+  m_cmdQueue = xQueueCreate(4, sizeof(SeqCommand));
+  if (m_cmdQueue) {
+    xTaskCreate([](void *param) { static_cast<outputSequencer *>(param)->taskLoop(); }, "SeqTask", 4096, this, 2, &m_taskHandle);
+  }
+}
 
 void outputSequencer::createSequence(String sequenceString, uint16_t uid) {
   // String will be in the format: "CHANNEL:STATE:DURATION;CHANNEL:STATE:DURATION..."
@@ -41,36 +47,84 @@ void outputSequencer::createSequence(String sequenceString, uint16_t uid) {
 }
 
 void outputSequencer::startSequence(uint16_t uid) {
-  if (millis() - lastSequenceStart > NEXT_SEQ_PERIOD) {
-    auto it = allSequences.find(uid);
-    if (it != allSequences.end()) {
-      seqRunning = true;
-      sequence &seq = it->second;
-
-      lastSequenceStart = millis();  // Record the start time of the sequence
-
-      for (const auto &block : seq) {
-        if (seqRunning) {
-          m_actuation->setDigital(PCA6408A_outputPins[block.channel], (block.state ? OUTPUT_LOW : OUTPUT_OPEN));
-
-          // this will give better timing control
-          unsigned long startTime = millis();
-          while (millis() - startTime < block.durationMS) {
-            vTaskDelay(pdMS_TO_TICKS(1));
-          }
-        } else {
-          break;
-        }
-      }
-    } else {
-      Serial.printf("Sequence with UID %d not found.\n", uid);
-    }
-  }
+  // Non-blocking: enqueue a start command for the background task
+  if (!m_cmdQueue) return;
+  SeqCommand cmd{CmdType::Start, uid};
+  xQueueSend(m_cmdQueue, &cmd, 0);
 }
 
 void outputSequencer::stopSequence() {
-  seqRunning = false;  // Stop the sequence by setting the flag to false
-  for (int i = 1; i <= 8; ++i) {
-    m_actuation->setDigital(PCA6408A_outputPins[i], OUTPUT_OPEN);
+  // Non-blocking: signal the sequencer task to stop immediately
+  seqRunning = false;  // allow immediate visibility
+  if (!m_cmdQueue) {
+    // Fallback: clear outputs if task/queue not ready
+    m_actuation->setAllClear();
+    return;
+  }
+  SeqCommand cmd{CmdType::Stop, 0};
+  xQueueSend(m_cmdQueue, &cmd, 0);
+}
+
+void outputSequencer::taskLoop() {
+  TickType_t lastWake = xTaskGetTickCount();
+  const TickType_t tick = pdMS_TO_TICKS(1);
+
+  // current sequence context
+  uint16_t activeUid = 0;
+  size_t blockIndex = 0;
+  unsigned long blockStartMs = 0;
+  sequence empty;
+  const sequence *activeSeq = &empty;
+
+  for (;;) {
+    // Process commands quickly
+    SeqCommand cmd;
+    while (xQueueReceive(m_cmdQueue, &cmd, 0) == pdTRUE) {
+      if (cmd.type == CmdType::Stop) {
+        seqRunning = false;
+        m_actuation->setAllClear();
+        activeSeq = &empty;
+      } else if (cmd.type == CmdType::Start) {
+        // Enforce start guard
+        if ((millis() - lastSequenceStart > NEXT_SEQ_PERIOD) || m_firstRun) {
+          auto it = allSequences.find(cmd.uid);
+          if (it != allSequences.end()) {
+            activeUid = cmd.uid;
+            activeSeq = &it->second;
+            blockIndex = 0;
+            seqRunning = true;
+            m_firstRun = false;
+            lastSequenceStart = millis();
+            blockStartMs = 0;  // start immediately
+          } else {
+            Serial.printf("Sequence with UID %d not found.\n", cmd.uid);
+          }
+        }
+      }
+    }
+
+    // Execute current sequence if running
+    if (seqRunning && activeSeq && !activeSeq->empty()) {
+      if (blockIndex >= activeSeq->size()) {
+        // finished
+        seqRunning = false;
+        m_actuation->setAllClear();
+        activeSeq = &empty;
+      } else {
+        const auto &block = (*activeSeq)[blockIndex];
+        if (blockStartMs == 0) {
+          // start this block
+          m_actuation->setDigital(PCA6408A_outputPins[block.channel], (block.state ? OUTPUT_LOW : OUTPUT_OPEN));
+          blockStartMs = millis();
+        }
+        // Check for duration expiry or external stop
+        if (!seqRunning || (millis() - blockStartMs >= block.durationMS)) {
+          blockIndex++;
+          blockStartMs = 0;
+        }
+      }
+    }
+
+    vTaskDelayUntil(&lastWake, tick);
   }
 }

@@ -97,8 +97,8 @@ class Control {
 
   unsigned long serial_Interval = 50;
   unsigned long lora_Interval = 50;
-  unsigned long status_Interval = 1'000;
-  unsigned long heartBeat_Interval = 500;
+  unsigned long status_Interval = 2'000;
+  unsigned long heartBeat_Interval = 1'000;
 
   static constexpr const char *TAG = "Control";
 

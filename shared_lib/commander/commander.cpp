@@ -236,7 +236,7 @@ void Commander::setCommand(const char *buffer) {
 }
 
 bool Commander::runCommand(uint8_t commandID, const char *param) {
-  ESP_LOGD(TAG, "Running command ID: %d with param: %.2f", commandID, param);
+  ESP_LOGD(TAG, "Running command ID: %d with string param: %s", commandID, param);
   switch (commandID) {
     case CMD_SEQ:
       handle_seq(param);
@@ -248,7 +248,7 @@ bool Commander::runCommand(uint8_t commandID, const char *param) {
 }
 
 bool Commander::runCommand(uint8_t commandID, float param) {
-  ESP_LOGD(TAG, "Running command ID: %d with param: %.2f", commandID, param);
+  ESP_LOGD(TAG, "Running command ID: %d with float param: %.2f", commandID, param);
 
   switch (commandID) {
     case CMD_UPDATE_GAIN:
@@ -362,11 +362,11 @@ void Commander::handle_seq(const char *param) {
     m_outputSequencer->createSequence(seqStr, uid);
     ESP_LOGI(TAG, "Created sequence UID %u: %s", uid, seqStr);
   } else if (strcmp(cmd, "run") == 0) {
-    m_outputSequencer->startSequence(uid);
     ESP_LOGI(TAG, "Started sequence UID %u", uid);
+    m_outputSequencer->startSequence(uid);
   } else if (strcmp(cmd, "stop") == 0) {
     m_outputSequencer->stopSequence();
-    ESP_LOGI(TAG, "Stopped sequence UID %u", uid);
+    ESP_LOGI(TAG, "Stopped sequence");
   } else {
     ESP_LOGW(TAG, "Unknown sequence command: %s", cmd);
   }

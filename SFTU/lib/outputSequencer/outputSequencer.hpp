@@ -27,9 +27,24 @@ class outputSequencer {
   void stopSequence();
 
  private:
+  // Internal command types for the sequencer task
+  enum class CmdType : uint8_t { Start = 0, Stop = 1 };
+  struct SeqCommand {
+    CmdType type;
+    uint16_t uid;
+  };
+
   sequences allSequences;
   Actuation *m_actuation;
   volatile bool seqRunning = false;
 
-  unsigned long lastSequenceStart = 0;
+  unsigned long lastSequenceStart;
+  bool m_firstRun;
+
+  // Background task and command queue
+  TaskHandle_t m_taskHandle = nullptr;
+  QueueHandle_t m_cmdQueue = nullptr;
+
+  // Sequencer task loop (runs in its own FreeRTOS task)
+  void taskLoop();
 };

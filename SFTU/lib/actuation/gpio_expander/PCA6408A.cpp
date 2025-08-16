@@ -1,6 +1,6 @@
 #include "PCA6408A.hpp"
 
-uint8_t current_output_state = 0b00000000;  // Initialize to all LOW
+// uint8_t current_input_state = PCA6408A_ALL_INPUT;  // Initialize all actuation to LOW (HIGH IMPENDANCE / input mode)
 
 PCA6408A::PCA6408A(uint8_t addr, TwoWire &wire_) {
   _i2caddr = addr;
@@ -17,7 +17,7 @@ void PCA6408A::Initialization(uint8_t config) {
   i2cWriteByte(_i2caddr, PCA6408A_CONFIGURATION_REG, _config, *_I2C_BUS);
 
   // Initialize all outputs to HIGH (remember it's *active LOW*)
-  setDigital(PCA6408A_ALL_INPUT, OUTPUT_OPEN);
+  setAllClear();
 }
 
 void PCA6408A::setMode(uint8_t port, bool input_mode) {
@@ -41,18 +41,22 @@ void PCA6408A::setDigital(uint8_t port, uint8_t output) {
   // Check if the port is valid
   bool portValid = (port == PCA6408A_IO0) || (port == PCA6408A_IO1) || (port == PCA6408A_IO2) || (port == PCA6408A_IO3) || (port == PCA6408A_IO4) || (port == PCA6408A_IO5) || (port == PCA6408A_IO6) || (port == PCA6408A_IO7);
 
+  ESP_LOGI("PCA6408A", "Setting port %02X to %02X", port, output);
+
   if (portValid) {
     if (output == OUTPUT_HIGH) {
       setMode(port, false);
-      current_output_state |= port;
+      // current_input_state |= port;
     } else if (output == OUTPUT_LOW) {
       setMode(port, false);
-      current_output_state &= ~port;
+      // current_input_state &= ~port;
     } else if (output == OUTPUT_OPEN) {
       setMode(port, true);  // Set the port to input mode / high impedance
       return;               // No need to write to output register
     }
-    i2cWriteByte(_i2caddr, PCA6408A_OUTPUT_REG, current_output_state, *_I2C_BUS);
+
+    // only those that are set as outputs will be affected
+    i2cWriteByte(_i2caddr, PCA6408A_OUTPUT_REG, 0b00000000, *_I2C_BUS);
   } else {
     ESP_LOGE("PCA6408A", "Invalid port specified: %02X", port);
   }
@@ -62,8 +66,13 @@ void PCA6408A::setDigital(uint8_t port, uint8_t output) {
  @brief All Port to LOW
 */
 void PCA6408A::setAllClear() {
-  current_output_state = 0b00000000;  // Set all outputs to LOW
-  i2cWriteByte(_i2caddr, PCA6408A_OUTPUT_REG, current_output_state, *_I2C_BUS);
+  // current_input_state = 0b00000000;  // Set all outputs to LOW
+
+  ESP_LOGI("PCA6408A", "Setting all ports to LOW (HIGH IMPEDANCE)");
+
+  setMode(PCA6408A_ALL_INPUT, true);
+
+  // i2cWriteByte(_i2caddr, PCA6408A_OUTPUT_REG, current_input_state, *_I2C_BUS);
 }
 
 /**
@@ -72,7 +81,7 @@ void PCA6408A::setAllClear() {
 */
 void PCA6408A::setGPIO(uint8_t output) {
   // Update the current state tracking variable
-  current_output_state = output;
+  // current_input_state = output;
   // Write to the output register
   i2cWriteByte(_i2caddr, PCA6408A_OUTPUT_REG, output, *_I2C_BUS);
 }
