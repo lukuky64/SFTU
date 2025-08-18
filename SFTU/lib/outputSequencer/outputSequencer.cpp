@@ -108,7 +108,7 @@ void outputSequencer::taskLoop() {
       if (blockIndex >= activeSeq->size()) {
         // finished
         seqRunning = false;
-        m_actuation->setAllClear();
+        m_actuation->setAllClear();  // automatically turn off all outputs at end of sequence
         activeSeq = &empty;
       } else {
         const auto &block = (*activeSeq)[blockIndex];
@@ -126,5 +126,22 @@ void outputSequencer::taskLoop() {
     }
 
     vTaskDelayUntil(&lastWake, tick);
+  }
+}
+
+void outputSequencer::stopFromISR() {
+  // ISR-safe way to request stop: enqueue a Stop command from ISR
+  if (m_cmdQueue) {
+    SeqCommand cmd{CmdType::Stop, 0};
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    xQueueSendFromISR(m_cmdQueue, &cmd, &xHigherPriorityTaskWoken);
+#if portCHECK_IF_IN_ISR == 1
+    if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
+#else
+    (void)xHigherPriorityTaskWoken;
+#endif
+  } else {
+    // Fallback (not ideal in ISR): set flag, actual clearing will happen in task context later
+    seqRunning = false;
   }
 }

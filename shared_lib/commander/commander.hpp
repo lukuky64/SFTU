@@ -8,8 +8,10 @@
 #include "LoraMsg.hpp"
 #include "SerialCom.hpp"
 #include "commandID.hpp"
+#include "freertos/FreeRTOS.h"
 
 #ifdef SFTU
+#include "Definitions.hpp"
 #include "actuation.hpp"
 #include "adcADS.hpp"
 #include "adcProcessor.hpp"
@@ -26,6 +28,20 @@ class Commander {
 #else
   Commander(SerialCom *serialCom, LoRaCom *loraCom);
 #endif
+
+  // Button pins (from Definitions.hpp)
+  void initStopButtons();
+
+  // ISR handlers
+  static void IRAM_ATTR extBtn1ISR();
+  static void IRAM_ATTR extBtn2ISR();
+
+  // store singleton pointer for ISR
+  static Commander *instanceForISR;
+  // debounce
+  static constexpr TickType_t BUTTON_DEBOUNCE_TICKS = pdMS_TO_TICKS(50);
+  volatile TickType_t lastBtn1Tick = 0;
+  volatile TickType_t lastBtn2Tick = 0;
 
  private:
   char *m_command[128];  // Buffer to store the command

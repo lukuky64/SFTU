@@ -11,6 +11,43 @@ Commander::Commander(SerialCom *serialCom, LoRaCom *loraCom, Actuation *actuatio
   m_adcProcessors = adcProcessors;  // Initialize the adcProcessors array
   ESP_LOGD(TAG, "Commander initialised");
 }
+
+// static instance pointer for ISRs
+Commander *Commander::instanceForISR = nullptr;
+
+void Commander::initStopButtons() {
+  // save instance for ISR usage
+  instanceForISR = this;
+
+  pinMode(EXT_BTN1, INPUT_PULLUP);
+  pinMode(EXT_BTN2, INPUT_PULLUP);
+
+  // attach on falling edge (pressed -> LOW)
+  attachInterrupt(digitalPinToInterrupt(EXT_BTN1), Commander::extBtn1ISR, FALLING);
+  attachInterrupt(digitalPinToInterrupt(EXT_BTN2), Commander::extBtn2ISR, FALLING);
+}
+
+void IRAM_ATTR Commander::extBtn1ISR() {
+  if (!instanceForISR) return;
+  TickType_t now = xTaskGetTickCountFromISR();
+  TickType_t last = instanceForISR->lastBtn1Tick;
+  if ((now - last) < Commander::BUTTON_DEBOUNCE_TICKS) return;
+  instanceForISR->lastBtn1Tick = now;
+  if (instanceForISR->m_outputSequencer) {
+    instanceForISR->m_outputSequencer->stopFromISR();
+  }
+}
+
+void IRAM_ATTR Commander::extBtn2ISR() {
+  if (!instanceForISR) return;
+  TickType_t now = xTaskGetTickCountFromISR();
+  TickType_t last = instanceForISR->lastBtn2Tick;
+  if ((now - last) < Commander::BUTTON_DEBOUNCE_TICKS) return;
+  instanceForISR->lastBtn2Tick = now;
+  if (instanceForISR->m_outputSequencer) {
+    instanceForISR->m_outputSequencer->stopFromISR();
+  }
+}
 #else
 Commander::Commander(SerialCom *serialCom, LoRaCom *loraCom) {
   memset(m_command, 0, sizeof(m_command));  // Initialize command buffer

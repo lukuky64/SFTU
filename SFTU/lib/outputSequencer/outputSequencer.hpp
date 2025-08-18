@@ -25,6 +25,8 @@ class outputSequencer {
   void createSequence(String sequenceString, uint16_t uid = 0);
   void startSequence(uint16_t uid = 0);
   void stopSequence();
+  // ISR-safe stop (queues using FromISR)
+  void stopFromISR();
 
  private:
   // Internal command types for the sequencer task

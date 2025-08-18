@@ -48,6 +48,10 @@ void Control::setup() {
   // ESP_LOGD(TAG, "Analog clock actual frequency: %d Hz", m_ANALOG_I2C_BUS->getClock());
 
   m_actuation->init();
+  // initialize external stop buttons to allow immediate stop of sequences
+  if (m_commander) {
+    m_commander->initStopButtons();
+  }
   m_sdTalker->begin(SD_CD, SPI_CS_SD, *m_SPI_BUS);  // Initialize SD card
 
   // Load config from SD card
