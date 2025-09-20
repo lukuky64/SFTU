@@ -229,7 +229,7 @@ void Control::queueSample() {
   adcADS *adcs[2] = {m_adcADS_12, m_adcADS_34};
   std::array<std::array<ChannelConfig, 4> *, 2> configs = {&m_config->adc1_channels, &m_config->adc2_channels};
 
-  float *sampleValues[8] = {&sample.value1, &sample.value2, &sample.value3, &sample.value4, &sample.value5, &sample.value6, &sample.value7, &sample.value8};
+  float *sampleValues[9] = {&sample.value1, &sample.value2, &sample.value3, &sample.value4, &sample.value5, &sample.value6, &sample.value7, &sample.value8, &sample.battery_voltage};
 
   for (int adcIdx = 0; adcIdx < 2; ++adcIdx) {
     for (int ch = 0; ch < 4; ++ch) {
@@ -243,6 +243,8 @@ void Control::queueSample() {
       }
     }
   }
+
+  *sampleValues[8] = m_battMonitor->getScaledVoltage(1);  // Read battery voltage
 
   setLatestSample(sample);
 
@@ -268,15 +270,20 @@ void Control::sdTask() {
   // Convert std::vector<std::string> to std::vector<String> for SD_Talker
   std::vector<std::string> stdNames = m_config->getChannelNames();
   std::vector<std::string> stdUnits = m_config->getChannelUnits();
-  std::vector<String> arduinoNames, arduinoUnits;
-  arduinoNames.reserve(stdNames.size());
-  arduinoUnits.reserve(stdUnits.size());
-  for (const auto &n : stdNames) arduinoNames.push_back(String(n.c_str()));
-  for (const auto &u : stdUnits) arduinoUnits.push_back(String(u.c_str()));
+
+  std::vector<String> newStdNames, newStdUnits;
+  newStdNames.reserve(stdNames.size() + 1);  // +1 for battery voltage
+  newStdUnits.reserve(stdUnits.size() + 1);  // +1 for battery voltage
+  for (const auto &n : stdNames) newStdNames.push_back(String(n.c_str()));
+  for (const auto &u : stdUnits) newStdUnits.push_back(String(u.c_str()));
+
+  // Add battery voltage column
+  newStdNames.push_back(String("Battery Voltage"));
+  newStdUnits.push_back(String("V"));
 
   while (true) {
     while (!m_sdTalker->checkFileOpen()) {
-      m_sdTalker->startNewLog("/Logs/log", arduinoNames, arduinoUnits);
+      m_sdTalker->startNewLog("/Logs/log", newStdNames, newStdUnits);
       vTaskDelay(pdMS_TO_TICKS(500));
     }
 

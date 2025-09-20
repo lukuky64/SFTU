@@ -14,6 +14,7 @@ typedef struct {
   float value6;
   float value7;
   float value8;
+  float battery_voltage;
   uint32_t timestamp;
 } SampleWithTimestamp;
 

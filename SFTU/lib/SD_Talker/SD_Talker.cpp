@@ -270,10 +270,10 @@ bool SD_Talker::writeBlockToSD(const SampleWithTimestamp *block, size_t count) {
 
   // Buffer the entire block as a String and write in one go
   String buffer;
-  buffer.reserve(count * 120);  // Estimate, adjust as needed
+  buffer.reserve(count * 140);  // Increased estimate for battery voltage column
   for (size_t i = 0; i < count; ++i) {
-    char line[128];
-    snprintf(line, sizeof(line), "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", (unsigned long long)block[i].timestamp, block[i].value1, block[i].value2, block[i].value3, block[i].value4, block[i].value5, block[i].value6, block[i].value7, block[i].value8);
+    char line[144];  // HACK: Increased buffer size for battery voltage
+    snprintf(line, sizeof(line), "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", (unsigned long long)block[i].timestamp, block[i].value1, block[i].value2, block[i].value3, block[i].value4, block[i].value5, block[i].value6, block[i].value7, block[i].value8, block[i].battery_voltage);
     buffer += line;
   }
   size_t bytesWritten = dataFile.print(buffer);
